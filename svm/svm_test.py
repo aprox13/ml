@@ -20,7 +20,6 @@ CHOOSE_BEST_THREADS = 7
 C_CHOOSE = [0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 
 
-
 def read_dataset(filename) -> DataSet:
     data = pd.read_csv(filename)
     X = data.values[:, :-1]
@@ -29,7 +28,9 @@ def read_dataset(filename) -> DataSet:
     return DataSet(X, y)
 
 
-def draw(clf, X, y, step):
+def draw(clf: SVM, ds: DataSet, step):
+    X = ds.get_X()
+    y = ds.get_y
     stepx = step
     stepy = 0.01
     x_min, y_min = np.amin(X, 0)
@@ -42,6 +43,7 @@ def draw(clf, X, y, step):
                          np.arange(y_min, y_max, stepy))
 
     mesh_dots = np.c_[xx.ravel(), yy.ravel()]
+    print(mesh_dots)
     zz = np.apply_along_axis(lambda t: clf.predict(t), 1, mesh_dots)
     zz = np.array(zz).reshape(xx.shape)
 
@@ -142,6 +144,8 @@ def choose(data_set: DataSet, svms: List[SVM]):
 if __name__ == '__main__':
     ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("chips")), with_start_msg=True)
 
-    svm = log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
+    svm_best = log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
 
-    print(f"Got {svm}")
+    print(f"Got {svm_best}")
+    log_action("trainig", lambda: svm_best.fit(ds.get_X(), ds.get_y()), with_start_msg=True)
+    log_action("drawing", lambda: draw(svm_best, ds, step=0.01))

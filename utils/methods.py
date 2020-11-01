@@ -1,6 +1,8 @@
 import time
 from functools import reduce
+from typing import TypeVar, Callable
 
+T = TypeVar('T')
 
 def group_by(f, lst):
     res = {}
@@ -42,7 +44,7 @@ def pretty_time(millis: int) -> str:
     return "0ms"
 
 
-def log_action(action_name, action, with_start_msg=False, with_result=True):
+def log_action(action_name, action: Callable[[], T], with_start_msg=False, with_result=True) -> T:
     def millis():
         return int(round(time.time() * 1000))
 
