@@ -2,6 +2,7 @@
 import logging
 
 import numpy as np
+import scipy.spatial.distance as dist
 
 np.random.seed(9999)
 
@@ -14,14 +15,27 @@ class Linear(object):
         return "Linear kernel"
 
 
+class RBF(object):
+    def __init__(self, gamma=0.1):
+        self.gamma = gamma
+
+    def __call__(self, x, y):
+        x = np.atleast_2d(x)
+        y = np.atleast_2d(y)
+        return np.exp(-self.gamma * dist.cdist(x, y) ** 2).flatten()
+
+    def __repr__(self):
+        return f"RBF kernel with gamma {self.gamma}"
+
+
 class SVM:
-    def __init__(self, C=1.0, kernel=None, tol=1e-3, max_iter=100):
+    def __init__(self, C=1.0, kernel=None, tol=1e-6, max_iter=100):
         """Support vector machines implementation using simplified SMO optimization.
         Parameters
         ----------
         C : float, default 1.0
         kernel : Kernel object
-        tol : float , default 1e-3
+        tol : float , default 1e-6
         max_iter : int, default 100
         """
         self.C = C
@@ -104,11 +118,7 @@ class SVM:
         self.sv_idx = np.where(self.alpha > 0)[0]
 
     def predict(self, X=None):
-        n = X.shape[0]
-        result = np.zeros(n)
-        for i in range(n):
-            result[i] = np.sign(self._predict_row(X[i, :]))
-        return result
+        return np.sign(self._predict_row(X))
 
     def _predict_row(self, X):
         k_v = self.kernel(self.X[self.sv_idx], X)
@@ -143,26 +153,8 @@ class SVM:
             i = np.random.randint(0, self.n_samples - 1)
         return i
 
+    def get_suport_indices(self):
+        return self.sv_idx
 
-X = np.array(
-    [
-        [1, 2],
-        [2, 3],
-        [2, 1],
-        [3, 2]
-    ]
-)
-
-y = np.array([-1, -1, 1, 1])
-
-svm = SVM(C=10)
-svm.fit(X, y)
-
-X_test = np.array(
-    [
-        [0, 3],
-        [3, 1]
-    ]
-)
-
-print(svm.predict(X_test))
+    def __repr__(self):
+        return f"SVM[kernel={self.kernel}, C={self.C}]"
