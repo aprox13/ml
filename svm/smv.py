@@ -128,8 +128,19 @@ class SVM:
         # Save support vectors index
         self.sv_idx = np.where(self.alpha > 0)[0]
 
-    def predict(self, X=None):
+    def predict(self, X):
         return np.sign(self._predict_row(X))
+
+    def predict_soft(self, X):
+        res = self._predict_row(X)
+        if res >= 1:
+            return 1
+        elif 0 <= res < 1:
+            return 0.5
+        elif -1 < res < 0:
+            return -0.5
+        else:
+            return -1
 
     def _predict_row(self, X):
         k_v = self.kernel(self.X[self.sv_idx], X)
@@ -170,15 +181,17 @@ class SVM:
     def __repr__(self):
         return f"SVM[kernel={self.kernel}, C={self.C}]"
 
+    def get_bad_idx(self):
+        return np.where(self.alpha == self.C)[0]
+
     def stat(self):
         def select(f):
             return self.X[np.where(f)[0]].shape[0]
 
         print(f"""
-        lbd < 0: {select(self.alpha < 0)}
-        lbd = 0: {select(self.alpha == 0)}
-        lbd = C: {select(self.alpha == self.C)} 
-        lbd > C: {select(self.alpha > self.C)}
+        a < 0: {select(self.alpha < 0)}
+        a = 0: {select(self.alpha == 0)}
+        a 0-C: {select((self.alpha > 0) & (self.alpha < self.C))}
+        a = C: {select(self.alpha == self.C)} 
+        a > C: {select(self.alpha > self.C)}
         """)
-
-

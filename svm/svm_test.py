@@ -43,8 +43,8 @@ def draw(clf: SVM, ds: DataSet, step):
                          np.arange(y_min, y_max, stepy))
 
     mesh_dots = np.c_[xx.ravel(), yy.ravel()]
-    print(mesh_dots)
-    zz = np.apply_along_axis(lambda t: clf.predict(t), 1, mesh_dots)
+    # print(mesh_dots)
+    zz = np.apply_along_axis(lambda t: clf.predict_soft(t), 1, mesh_dots)
     zz = np.array(zz).reshape(xx.shape)
 
     plt.figure(figsize=(10, 10))
@@ -53,7 +53,14 @@ def draw(clf: SVM, ds: DataSet, step):
     x0, y0 = X[y == -1].T
     x1, y1 = X[y == 1].T
 
-    plt.pcolormesh(xx, yy, zz, cmap=ListedColormap(['#FFAAAA', '#AAAAFF']), shading='auto')
+    color = [
+        "#F44336",
+        "#8BC34A",
+        "#CDDC39",
+        "#536DFE"
+    ]
+
+    plt.pcolormesh(xx, yy, zz, cmap=plt.get_cmap('PiYG'), shading='auto')
     plt.scatter(x0, y0, color='red', s=100)
     plt.scatter(x1, y1, color='blue', s=100)
 
@@ -61,7 +68,13 @@ def draw(clf: SVM, ds: DataSet, step):
     X_sup = X[sup_ind]
     x_sup, y_sup = X_sup.T
 
+    bad = clf.get_bad_idx()
+    X_bad = X[bad]
+
+    x_bad, y_bad = X_bad.T
+
     plt.scatter(x_sup, y_sup, color='white', marker='x', s=60)
+    plt.scatter(x_bad, y_bad, color='black', marker='x', s=60)
     plt.show()
 
 
@@ -142,9 +155,10 @@ def choose(data_set: DataSet, svms: List[SVM]):
 
 
 if __name__ == '__main__':
-    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("chips")), with_start_msg=True)
+    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("geyser")), with_start_msg=True)
 
-    svm_best = SVM(kernel=RBF(5), C=50, max_iter=2000) #log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
+    svm_best = SVM(kernel=Linear(), C=50,
+                   max_iter=2000)  # log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
 
     print(f"Got {svm_best}")
     log_action("trainig", lambda: svm_best.fit(ds.get_X(), ds.get_y()), with_start_msg=True)
