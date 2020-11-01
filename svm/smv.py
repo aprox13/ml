@@ -132,15 +132,7 @@ class SVM:
         return np.sign(self._predict_row(X))
 
     def predict_soft(self, X):
-        res = self._predict_row(X)
-        if res >= 1:
-            return 1
-        elif 0 <= res < 1:
-            return 0.5
-        elif -1 < res < 0:
-            return -0.5
-        else:
-            return -1
+        return self._predict_row(X)
 
     def _predict_row(self, X):
         k_v = self.kernel(self.X[self.sv_idx], X)

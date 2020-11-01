@@ -60,7 +60,7 @@ def draw(clf: SVM, ds: DataSet, step):
         "#536DFE"
     ]
 
-    plt.pcolormesh(xx, yy, zz, cmap=plt.get_cmap('PiYG'), shading='auto')
+    plt.pcolormesh(xx, yy, zz, cmap=plt.get_cmap('seismic'), shading='auto')
     plt.scatter(x0, y0, color='red', s=100)
     plt.scatter(x1, y1, color='blue', s=100)
 
@@ -74,7 +74,7 @@ def draw(clf: SVM, ds: DataSet, step):
     x_bad, y_bad = X_bad.T
 
     plt.scatter(x_sup, y_sup, color='white', marker='x', s=60)
-    plt.scatter(x_bad, y_bad, color='black', marker='x', s=60)
+    plt.scatter(x_bad, y_bad, color='black', marker='X', s=60)
     plt.show()
 
 
