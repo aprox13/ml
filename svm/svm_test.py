@@ -18,7 +18,7 @@ from svm.smv import *
 FILE_MASK = "data/{0}.csv"
 ITERATIONS = 3000
 
-CHOOSE_BEST_THREADS = 7
+CHOOSE_BEST_THREADS = 12
 C_CHOOSE = [0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 
 
@@ -30,25 +30,23 @@ def read_dataset(filename) -> DataSet:
     return DataSet(X, y)
 
 
+def pm_predict(f, data: np.ndarray, name):
+    return pm(f, data, desc=f'{name}', max_workers=CHOOSE_BEST_THREADS, chunksize=25000)
+
+
 def draw(clf: SVM, ds: DataSet, step):
     X = ds.get_X()
     y = ds.get_y()
-    stepx = step
-    stepy = 0.01
     x_min, y_min = np.amin(X, 0)
     x_max, y_max = np.amax(X, 0)
-    x_min -= stepx
-    x_max += stepx
-    y_min -= stepy
-    y_max += stepy
-    xx, yy = np.meshgrid(np.arange(x_min, x_max, stepx),
-                         np.arange(y_min, y_max, stepy))
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, step),
+                         np.arange(y_min, y_max, step))
 
     mesh_dots = np.c_[xx.ravel(), yy.ravel()]
-    predict_z = np.array([clf.predict(v) for v in tqdm(mesh_dots, desc="predict")]).reshape(xx.shape)
-    predict_soft_z = np.array([clf.predict_soft(v) for v in tqdm(mesh_dots, desc="Soft predict")]).reshape(xx.shape)
 
-    plt.figure(figsize=(10, 10))
+    predict_z = np.array(pm_predict(clf.predict, mesh_dots, name='predict')).reshape(xx.shape)
+    predict_soft_z = np.array(pm_predict(clf.predict_soft, mesh_dots, name='predict soft')).reshape(xx.shape)
+
     x0, y0 = X[y == -1].T
     x1, y1 = X[y == 1].T
 
@@ -62,6 +60,7 @@ def draw(clf: SVM, ds: DataSet, step):
     x_bad, y_bad = X_bad.T
 
     def plot(_predict_z):
+        plt.figure(figsize=(10, 10))
         plt.pcolormesh(xx, yy, _predict_z, cmap=plt.get_cmap('seismic'), shading='auto')
         plt.scatter(x0, y0, color='red', s=100)
         plt.scatter(x1, y1, color='blue', s=100)
@@ -107,7 +106,7 @@ def score(svm: SVM, ds: DataSet) -> float:
         svm.fit(cv_data_set.get_X(), cv_data_set.get_y())
 
         y_pred = np.apply_along_axis(svm.predict, 1, cv_data_set.get_test_X())
-        scores.append(accuracy(cv_data_set.get_test_y(), y_pred))
+        scores.append(accuracy_score(cv_data_set.get_test_y(), y_pred))
     return np.average(np.array(scores))
 
 
@@ -159,4 +158,4 @@ if __name__ == '__main__':
     print(f"Got {svm_best}")
     log_action("trainig", lambda: svm_best.fit(ds.get_X(), ds.get_y()), with_start_msg=True)
     svm_best.stat()
-    log_action("drawing", lambda: draw(svm_best, ds, step=0.0005))
+    log_action("drawing", lambda: draw(svm_best, ds, step=0.001))
