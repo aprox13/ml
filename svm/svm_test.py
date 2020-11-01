@@ -2,14 +2,11 @@ from functools import partial
 from typing import List, Tuple
 
 import pandas as pd
-import numpy as np
-from sklearn.metrics import f1_score
 from sklearn.model_selection import KFold
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
-import time
+
 from tqdm.contrib.concurrent import process_map as pm
-from functools import reduce
 
 from utils.methods import *
 from utils.plots import hist
@@ -22,48 +19,6 @@ CHOOSE_BEST_THREADS = 7
 C_CHOOSE = [0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 
 
-def in_range(x, start_ex, end_ex):
-    return start_ex < x < end_ex
-
-
-def pretty_time(millis: int) -> str:
-    base = [(1000 * 60, "min"), (1000, "sec"), (1, "ms")]
-
-    def step(acc, x):
-        cur_millis, result = acc
-        multiplier, name = x
-
-        part = cur_millis // multiplier
-        if part != 0:
-            result.append(f"{part}{name}")
-            cur_millis -= part * multiplier
-            return cur_millis, result
-        return acc
-
-    res = reduce(step, base, (millis, []))[1]
-    if len(res) != 0:
-        return "".join(res)
-    return "0ms"
-
-
-def log_action(action_name, action, with_start_msg=False, with_result=True):
-    def millis():
-        return int(round(time.time() * 1000))
-
-    if with_start_msg:
-        print(f"starting '{action_name}'")
-
-    start = millis()
-    res = action()
-    end_time_s = pretty_time(millis() - start)
-    result_part = ""
-    if with_result:
-        result_part = f" with result {res}"
-
-    print(f"'{action_name}' ends in {end_time_s}{result_part}")
-    return res
-
-
 class DataSet:
     def __init__(self, X: np.ndarray, y: np.ndarray, test_X=None, test_y=None):
         self.X = X
@@ -71,12 +26,6 @@ class DataSet:
 
         self._test_X = test_X
         self._test_y = test_y
-
-    def shuffle(self):
-        indices = np.arange(self.y.shape[0])
-        np.random.shuffle(indices)
-        self.X = self.X[indices]
-        self.y = self.y[indices]
 
     def get_X(self):
         return self.X
@@ -162,25 +111,8 @@ SVMS = [
 ]
 
 
-def unhot(function):
-    def wrapper(actual, predicted):
-        if len(actual.shape) > 1 and actual.shape[1] > 1:
-            actual = actual.argmax(axis=1)
-        if len(predicted.shape) > 1 and predicted.shape[1] > 1:
-            predicted = predicted.argmax(axis=1)
-        return function(actual, predicted)
-
-    return wrapper
-
-
-@unhot
-def classification_error(actual: np.ndarray, predicted: np.ndarray):
-    return (actual != predicted).sum() / float(actual.shape[0])
-
-
-@unhot
-def accuracy(actual, predicted):
-    return 1.0 - classification_error(actual, predicted)
+def accuracy(actual: np.ndarray, predicted: np.ndarray):
+    return 1.0 - ((actual != predicted).sum() / float(actual.shape[0]))
 
 
 def score(svm: SVM, ds: DataSet) -> float:
@@ -236,10 +168,8 @@ def choose(data_set: DataSet, svms: List[SVM]):
 
 
 if __name__ == '__main__':
-    print("reading")
-    ds = read_dataset(FILE_MASK.format("chips"))
+    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("chips")), with_start_msg=True)
 
-    print("choose")
-    a = choose(ds, SVMS)
+    svm = log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
 
-    print(f"Got {a}")
+    print(f"Got {svm}")
