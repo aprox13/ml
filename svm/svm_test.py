@@ -30,7 +30,7 @@ def read_dataset(filename) -> DataSet:
 
 def draw(clf: SVM, ds: DataSet, step):
     X = ds.get_X()
-    y = ds.get_y
+    y = ds.get_y()
     stepx = step
     stepy = 0.01
     x_min, y_min = np.amin(X, 0)
@@ -144,8 +144,9 @@ def choose(data_set: DataSet, svms: List[SVM]):
 if __name__ == '__main__':
     ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("chips")), with_start_msg=True)
 
-    svm_best = log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
+    svm_best = SVM(kernel=RBF(5), C=50, max_iter=2000) #log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
 
     print(f"Got {svm_best}")
     log_action("trainig", lambda: svm_best.fit(ds.get_X(), ds.get_y()), with_start_msg=True)
+    svm_best.stat()
     log_action("drawing", lambda: draw(svm_best, ds, step=0.01))

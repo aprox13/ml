@@ -169,3 +169,16 @@ class SVM:
 
     def __repr__(self):
         return f"SVM[kernel={self.kernel}, C={self.C}]"
+
+    def stat(self):
+        def select(f):
+            return self.X[np.where(f)[0]].shape[0]
+
+        print(f"""
+        lbd < 0: {select(self.alpha < 0)}
+        lbd = 0: {select(self.alpha == 0)}
+        lbd = C: {select(self.alpha == self.C)} 
+        lbd > C: {select(self.alpha > self.C)}
+        """)
+
+
