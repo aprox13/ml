@@ -5,6 +5,8 @@ import pandas as pd
 from sklearn.model_selection import KFold
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
+from tqdm import tqdm
 
 from tqdm.contrib.concurrent import process_map as pm
 
@@ -43,26 +45,12 @@ def draw(clf: SVM, ds: DataSet, step):
                          np.arange(y_min, y_max, stepy))
 
     mesh_dots = np.c_[xx.ravel(), yy.ravel()]
-    # print(mesh_dots)
-    zz = np.apply_along_axis(lambda t: clf.predict_soft(t), 1, mesh_dots)
-    zz = np.array(zz).reshape(xx.shape)
+    predict_z = np.array([clf.predict(v) for v in tqdm(mesh_dots, desc="predict")]).reshape(xx.shape)
+    predict_soft_z = np.array([clf.predict_soft(v) for v in tqdm(mesh_dots, desc="Soft predict")]).reshape(xx.shape)
 
     plt.figure(figsize=(10, 10))
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
     x0, y0 = X[y == -1].T
     x1, y1 = X[y == 1].T
-
-    color = [
-        "#F44336",
-        "#8BC34A",
-        "#CDDC39",
-        "#536DFE"
-    ]
-
-    plt.pcolormesh(xx, yy, zz, cmap=plt.get_cmap('seismic'), shading='auto')
-    plt.scatter(x0, y0, color='red', s=100)
-    plt.scatter(x1, y1, color='blue', s=100)
 
     sup_ind = clf.get_suport_indices()
     X_sup = X[sup_ind]
@@ -73,9 +61,17 @@ def draw(clf: SVM, ds: DataSet, step):
 
     x_bad, y_bad = X_bad.T
 
-    plt.scatter(x_sup, y_sup, color='white', marker='x', s=60)
-    plt.scatter(x_bad, y_bad, color='black', marker='X', s=60)
-    plt.show()
+    def plot(_predict_z):
+        plt.pcolormesh(xx, yy, _predict_z, cmap=plt.get_cmap('seismic'), shading='auto')
+        plt.scatter(x0, y0, color='red', s=100)
+        plt.scatter(x1, y1, color='blue', s=100)
+
+        plt.scatter(x_sup, y_sup, color='white', marker='x', s=60)
+        plt.scatter(x_bad, y_bad, color='black', marker='X', s=60)
+        plt.show()
+
+    plot(predict_z)
+    plot(predict_soft_z)
 
 
 KERNELS = [
@@ -108,7 +104,7 @@ def score(svm: SVM, ds: DataSet) -> float:
     for train_index, test_index in cv.split(ds.get_X()):
         cv_data_set = ds.get_for_cross_validation(train_index, test_index)
 
-        svm.fit(ds.get_X(), ds.get_y())
+        svm.fit(cv_data_set.get_X(), cv_data_set.get_y())
 
         y_pred = np.apply_along_axis(svm.predict, 1, cv_data_set.get_test_X())
         scores.append(accuracy(cv_data_set.get_test_y(), y_pred))
@@ -155,12 +151,12 @@ def choose(data_set: DataSet, svms: List[SVM]):
 
 
 if __name__ == '__main__':
-    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("geyser")), with_start_msg=True)
+    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("chips")), with_start_msg=True)
 
-    svm_best = SVM(kernel=Linear(), C=50,
-                   max_iter=2000)  # log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
+    svm_best = SVM(max_iter=ITERATIONS, C=50,
+                   kernel=RBF(1))  # log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
 
     print(f"Got {svm_best}")
     log_action("trainig", lambda: svm_best.fit(ds.get_X(), ds.get_y()), with_start_msg=True)
     svm_best.stat()
-    log_action("drawing", lambda: draw(svm_best, ds, step=0.01))
+    log_action("drawing", lambda: draw(svm_best, ds, step=0.0005))
