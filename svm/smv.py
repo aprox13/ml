@@ -12,20 +12,31 @@ class Linear(object):
         return np.dot(x, y.T)
 
     def __repr__(self):
-        return "Linear kernel"
+        return "Linear"
 
 
 class RBF(object):
-    def __init__(self, gamma=0.1):
-        self.gamma = gamma
+    def __init__(self, beta):
+        self.beta = beta
 
     def __call__(self, x, y):
         x = np.atleast_2d(x)
         y = np.atleast_2d(y)
-        return np.exp(-self.gamma * dist.cdist(x, y) ** 2).flatten()
+        return np.exp(-self.beta * dist.cdist(x, y) ** 2).flatten()
 
     def __repr__(self):
-        return f"RBF kernel with gamma {self.gamma}"
+        return f"RBF[β = {self.beta}]"
+
+
+class Poly(object):
+    def __init__(self, d=2):
+        self.degree = d
+
+    def __call__(self, x, y):
+        return np.dot(x, y.T) ** self.degree
+
+    def __repr__(self):
+        return f"Poly[d = {self.degree}]"
 
 
 class SVM:
