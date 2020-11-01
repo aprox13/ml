@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from tqdm.contrib.concurrent import process_map as pm
 
+from utils.data_set import DataSet
 from utils.methods import *
 from utils.plots import hist
 from svm.smv import *
@@ -18,35 +19,6 @@ ITERATIONS = 3000
 CHOOSE_BEST_THREADS = 7
 C_CHOOSE = [0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 
-
-class DataSet:
-    def __init__(self, X: np.ndarray, y: np.ndarray, test_X=None, test_y=None):
-        self.X = X
-        self.y = y
-
-        self._test_X = test_X
-        self._test_y = test_y
-
-    def get_X(self):
-        return self.X
-
-    def get_y(self):
-        return self.y
-
-    def get_test_X(self):
-        return self._test_X
-
-    def get_test_y(self):
-        return self._test_y
-
-    def count(self):
-        return self.y.shape[0]
-
-    def get_for_cross_validation(self, train_indices, test_indices):
-        train_X, test_X = self.X[train_indices], self.X[test_indices]
-        train_y, test_y = self.y[train_indices], self.y[test_indices]
-
-        return DataSet(X=train_X, y=train_y, test_X=test_X, test_y=test_y)
 
 
 def read_dataset(filename) -> DataSet:
