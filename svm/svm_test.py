@@ -14,6 +14,7 @@ from utils.data_set import DataSet
 from utils.methods import *
 from utils.plots import hist
 from svm.smv import *
+from svm.svm2 import SVM2
 
 FILE_MASK = "data/{0}.csv"
 ITERATIONS = 3000
@@ -50,14 +51,15 @@ def draw(clf: SVM, ds: DataSet, step):
     x0, y0 = X[y == -1].T
     x1, y1 = X[y == 1].T
 
-    sup_ind = clf.get_suport_indices()
+    sup_ind = clf.get_support_indices()
     X_sup = X[sup_ind]
     x_sup, y_sup = X_sup.T
 
     bad = clf.get_bad_idx()
-    X_bad = X[bad]
+    if len(bad) != 0:
+        X_bad = X[bad]
 
-    x_bad, y_bad = X_bad.T
+        x_bad, y_bad = X_bad.T
 
     def plot(_predict_z):
         plt.figure(figsize=(10, 10))
@@ -66,7 +68,8 @@ def draw(clf: SVM, ds: DataSet, step):
         plt.scatter(x1, y1, color='blue', s=100)
 
         plt.scatter(x_sup, y_sup, color='white', marker='x', s=60)
-        plt.scatter(x_bad, y_bad, color='black', marker='X', s=60)
+        if len(bad) != 0:
+            plt.scatter(x_bad, y_bad, color='black', marker='X', s=60)
         plt.show()
 
     plot(predict_z)
@@ -87,7 +90,7 @@ KERNELS = [
 ]
 
 SVMS = [
-    SVM(max_iter=ITERATIONS, C=c, kernel=k)
+    SVM2(max_iter=ITERATIONS, C=c, kernel=k)
     for k in KERNELS
     for c in C_CHOOSE
 ]
@@ -98,15 +101,15 @@ def accuracy(actual: np.ndarray, predicted: np.ndarray):
 
 
 def score(svm: SVM, ds: DataSet) -> float:
-    cv = KFold(4)
+    cv = KFold(3)
     scores = []
     for train_index, test_index in cv.split(ds.get_X()):
-        cv_data_set = ds.get_for_cross_validation(train_index, test_index)
+        ds_ = ds.get_for_cross_validation(train_index, test_index)
 
-        svm.fit(cv_data_set.get_X(), cv_data_set.get_y())
+        svm.fit(ds.get_X(), ds.get_y())
 
-        y_pred = np.apply_along_axis(svm.predict, 1, cv_data_set.get_test_X())
-        scores.append(accuracy_score(cv_data_set.get_test_y(), y_pred))
+        y_pred = np.apply_along_axis(svm.predict, 1, ds_.get_test_X())
+        scores.append(accuracy_score(ds_.get_test_y(), y_pred))
     return np.average(np.array(scores))
 
 
@@ -150,12 +153,11 @@ def choose(data_set: DataSet, svms: List[SVM]):
 
 
 if __name__ == '__main__':
-    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("chips")), with_start_msg=True)
+    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("geyser")), with_start_msg=True)
 
-    svm_best = SVM(max_iter=ITERATIONS, C=50,
-                   kernel=RBF(1))  # log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
+    svm_best = SVMS[0]  # log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
 
     print(f"Got {svm_best}")
     log_action("trainig", lambda: svm_best.fit(ds.get_X(), ds.get_y()), with_start_msg=True)
-    svm_best.stat()
-    log_action("drawing", lambda: draw(svm_best, ds, step=0.001))
+    # svm_best.stat()
+    log_action("drawing", lambda: draw(svm_best, ds, step=0.1))

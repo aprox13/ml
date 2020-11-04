@@ -167,7 +167,7 @@ class SVM:
             i = np.random.randint(0, self.n_samples - 1)
         return i
 
-    def get_suport_indices(self):
+    def get_support_indices(self):
         return self.sv_idx
 
     def __repr__(self):
