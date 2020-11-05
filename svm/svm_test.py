@@ -39,7 +39,7 @@ def draw(clf: SVM, ds: DataSet, step):
     x0, y0 = X[y == -1].T
     x1, y1 = X[y == 1].T
 
-    X_sup = X[clf.sv_idx]
+    X_sup = X[clf.support_indices]
     x_sup, y_sup = X_sup.T
 
     def plot(_predict_z):

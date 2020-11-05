@@ -1,6 +1,3 @@
-# coding:utf-8
-import logging
-
 import numpy as np
 import scipy.spatial.distance as dist
 
@@ -42,20 +39,20 @@ class Poly(object):
 
 
 class SVM(BaseEstimator):
-    def __init__(self, C=1.0, kernel=None, tol=1e-6, max_iter=100):
+    def __init__(self, C=1.0, kernel=None, eps=1e-6, max_iter=100):
         self.C = C
-        self.tol = tol
+        self.eps = eps
         self.max_iter = max_iter
 
         self.kernel = kernel
 
         self.b = 0
-        self.alpha = None
+        self.lagr_coefs = None
         self.K = None
         self.X = None
         self.y = None
         self.n_samples = 0
-        self.sv_idx = None
+        self.support_indices = None
 
     def fit(self, X, y=None):
         self.n_samples = X.shape[0]
@@ -64,103 +61,65 @@ class SVM(BaseEstimator):
         self.K = np.zeros((self.n_samples, self.n_samples))
         for i in range(self.n_samples):
             self.K[:, i] = self.kernel(self.X, self.X[i, :])
-        self.alpha = np.zeros(self.n_samples)
-        self.sv_idx = np.arange(0, self.n_samples)
+        self.lagr_coefs = np.zeros(self.n_samples)
+        self.support_indices = np.arange(0, self.n_samples)
 
-        iters = 0
-        while iters < self.max_iter:
-            iters += 1
-            alpha_prev = np.copy(self.alpha)
+        for _ in range(self.max_iter):
+            prev_coefs = np.copy(self.lagr_coefs)
 
             for j in range(self.n_samples):
-                # Pick random i
-                i = self.random_index(j)
+                i = j
+                while i == j:
+                    i = np.random.randint(0, self.n_samples - 1)
 
                 eta = 2.0 * self.K[i, j] - self.K[i, i] - self.K[j, j]
-                if eta >= 0:
-                    continue
-                L, H = self._find_bounds(i, j)
+                if eta < 0:
+                    if self.y[i] == self.y[j]:
+                        L = max(0, self.lagr_coefs[i] + self.lagr_coefs[j] - self.C)
+                        H = min(self.C, self.lagr_coefs[i] + self.lagr_coefs[j])
+                    else:
+                        L = max(0, self.lagr_coefs[j] - self.lagr_coefs[i])
+                        H = min(self.C, self.C - self.lagr_coefs[i] + self.lagr_coefs[j])
 
-                # Error for current examples
-                e_i, e_j = self._error(i), self._error(j)
+                    e_i = self._predict_one(self.X[i]) - self.y[i]
+                    e_j = self._predict_one(self.X[j]) - self.y[j]
 
-                # Save old alphas
-                alpha_io, alpha_jo = self.alpha[i], self.alpha[j]
+                    old_c_i, old_c_j = self.lagr_coefs[i], self.lagr_coefs[j]
 
-                # Update alpha
-                self.alpha[j] -= (self.y[j] * (e_i - e_j)) / eta
-                self.alpha[j] = self.clip(self.alpha[j], H, L)
+                    self.lagr_coefs[j] -= (self.y[j] * (e_i - e_j)) / eta
+                    self.lagr_coefs[j] = max(min(self.lagr_coefs[j], H), L)
 
-                self.alpha[i] = self.alpha[i] + self.y[i] * self.y[j] * (alpha_jo - self.alpha[j])
+                    self.lagr_coefs[i] = self.lagr_coefs[i] + self.y[i] * self.y[j] * (old_c_j - self.lagr_coefs[j])
 
-                # Find intercept
-                b1 = (
-                        self.b - e_i - self.y[i] * (self.alpha[i] - alpha_io) * self.K[i, i]
-                        - self.y[j] * (self.alpha[j] - alpha_jo) * self.K[i, j]
-                )
-                b2 = (
-                        self.b - e_j - self.y[j] * (self.alpha[j] - alpha_jo) * self.K[j, j]
-                        - self.y[i] * (self.alpha[i] - alpha_io) * self.K[i, j]
-                )
-                if 0 < self.alpha[i] < self.C:
-                    self.b = b1
-                elif 0 < self.alpha[j] < self.C:
-                    self.b = b2
-                else:
-                    self.b = 0.5 * (b1 + b2)
+                    def b(a, b, e_a, old_a, old_b):
+                        return self.b - e_a - self.y[a] * (self.lagr_coefs[a] - old_a) * self.K[a, a] \
+                               - self.y[b] * (self.lagr_coefs[b] - old_b) * self.K[i, j]
 
-            # Check convergence
-            diff = np.linalg.norm(self.alpha - alpha_prev)
-            if diff < self.tol:
+                    self.b = b(i, j, e_i, old_c_i, old_c_j)
+                    if not (0 < self.b < self.C):
+                        p = self.b
+                        self.b = b(j, i, e_j, old_c_j, old_c_i)
+                        if not (0 < self.b < self.C):
+                            self.b = 0.5 * (p + self.b)
+
+            if np.linalg.norm(self.lagr_coefs - prev_coefs) < self.eps:
                 break
-        logging.info("Convergence has reached after %s." % iters)
 
-        # Save support vectors index
-        self.sv_idx = np.where(self.alpha > 0)[0]
-
+        self.support_indices = np.where(self.lagr_coefs > 0)[0]
 
     def predict(self, X):
         res = []
         for row in X:
-            cls = np.sign(self.predict_row(row))
+            cls = np.sign(self._predict_one(row))
             res.append(1 if cls == 0 else cls)
         return np.array(res)
 
     def predict_single(self, X):
-        return np.sign(self.predict_row(X))
+        return np.sign(self._predict_one(X))
 
-    def predict_row(self, X):
-        k_v = self.kernel(self.X[self.sv_idx], X)
-        return np.dot((self.alpha[self.sv_idx] * self.y[self.sv_idx]).T, k_v.T) + self.b
-
-    def clip(self, alpha, H, L):
-        if alpha > H:
-            alpha = H
-        if alpha < L:
-            alpha = L
-        return alpha
-
-    def _error(self, i):
-        """Error for single example."""
-        return self.predict_row(self.X[i]) - self.y[i]
-
-    def _find_bounds(self, i, j):
-        """Find L and H such that L <= alpha <= H.
-        Also, alpha must satisfy the constraint 0 <= αlpha <= C.
-        """
-        if self.y[i] != self.y[j]:
-            L = max(0, self.alpha[j] - self.alpha[i])
-            H = min(self.C, self.C - self.alpha[i] + self.alpha[j])
-        else:
-            L = max(0, self.alpha[i] + self.alpha[j] - self.C)
-            H = min(self.C, self.alpha[i] + self.alpha[j])
-        return L, H
-
-    def random_index(self, z):
-        i = z
-        while i == z:
-            i = np.random.randint(0, self.n_samples - 1)
-        return i
+    def _predict_one(self, X):
+        k_v = self.kernel(self.X[self.support_indices], X)
+        return np.dot((self.lagr_coefs[self.support_indices] * self.y[self.support_indices]).T, k_v.T) + self.b
 
     def __repr__(self, **kwargs):
         return f"SVM[kernel={self.kernel}, C={self.C}]"
