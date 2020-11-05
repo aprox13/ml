@@ -4,25 +4,6 @@ from typing import TypeVar, Callable
 
 T = TypeVar('T')
 
-def group_by(f, lst):
-    res = {}
-
-    for e in lst:
-        key = f(e)
-        if key in res:
-            res[key].append(e)
-        else:
-            res[key] = [e]
-    return res
-
-
-def find_in(array, by, default=None):
-    return next(filter(by, array), default)
-
-
-def in_range(x, start_ex, end_ex):
-    return start_ex < x < end_ex
-
 
 def pretty_time(millis: int) -> str:
     base = [(1000 * 60, "min"), (1000, "sec"), (1, "ms")]

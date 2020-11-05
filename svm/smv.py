@@ -4,7 +4,8 @@ import logging
 import numpy as np
 import scipy.spatial.distance as dist
 
-np.random.seed(9999)
+np.random.seed(1982)
+from sklearn.base import BaseEstimator
 
 
 class Linear(object):
@@ -29,33 +30,24 @@ class RBF(object):
 
 
 class Poly(object):
-    def __init__(self, d=2):
+    def __init__(self, d=2, k=1):
         self.degree = d
+        self.k = k
 
     def __call__(self, x, y):
-        return np.dot(x, y.T) ** self.degree
+        return np.dot(x, y.T) ** self.degree + self.k
 
     def __repr__(self):
-        return f"Poly[d = {self.degree}]"
+        return f"Poly[d = {self.degree}, k = {self.k}]"
 
 
-class SVM:
+class SVM(BaseEstimator):
     def __init__(self, C=1.0, kernel=None, tol=1e-6, max_iter=100):
-        """Support vector machines implementation using simplified SMO optimization.
-        Parameters
-        ----------
-        C : float, default 1.0
-        kernel : Kernel object
-        tol : float , default 1e-6
-        max_iter : int, default 100
-        """
         self.C = C
         self.tol = tol
         self.max_iter = max_iter
-        if kernel is None:
-            self.kernel = Linear()
-        else:
-            self.kernel = kernel
+
+        self.kernel = kernel
 
         self.b = 0
         self.alpha = None
@@ -74,9 +66,7 @@ class SVM:
             self.K[:, i] = self.kernel(self.X, self.X[i, :])
         self.alpha = np.zeros(self.n_samples)
         self.sv_idx = np.arange(0, self.n_samples)
-        return self._train()
 
-    def _train(self):
         iters = 0
         while iters < self.max_iter:
             iters += 1
@@ -128,13 +118,18 @@ class SVM:
         # Save support vectors index
         self.sv_idx = np.where(self.alpha > 0)[0]
 
+
     def predict(self, X):
-        return np.sign(self._predict_row(X))
+        res = []
+        for row in X:
+            cls = np.sign(self.predict_row(row))
+            res.append(1 if cls == 0 else cls)
+        return np.array(res)
 
-    def predict_soft(self, X):
-        return self._predict_row(X)
+    def predict_single(self, X):
+        return np.sign(self.predict_row(X))
 
-    def _predict_row(self, X):
+    def predict_row(self, X):
         k_v = self.kernel(self.X[self.sv_idx], X)
         return np.dot((self.alpha[self.sv_idx] * self.y[self.sv_idx]).T, k_v.T) + self.b
 
@@ -147,7 +142,7 @@ class SVM:
 
     def _error(self, i):
         """Error for single example."""
-        return self._predict_row(self.X[i]) - self.y[i]
+        return self.predict_row(self.X[i]) - self.y[i]
 
     def _find_bounds(self, i, j):
         """Find L and H such that L <= alpha <= H.
@@ -167,23 +162,5 @@ class SVM:
             i = np.random.randint(0, self.n_samples - 1)
         return i
 
-    def get_suport_indices(self):
-        return self.sv_idx
-
-    def __repr__(self):
+    def __repr__(self, **kwargs):
         return f"SVM[kernel={self.kernel}, C={self.C}]"
-
-    def get_bad_idx(self):
-        return np.where(self.alpha == self.C)[0]
-
-    def stat(self):
-        def select(f):
-            return self.X[np.where(f)[0]].shape[0]
-
-        print(f"""
-        a < 0: {select(self.alpha < 0)}
-        a = 0: {select(self.alpha == 0)}
-        a 0-C: {select((self.alpha > 0) & (self.alpha < self.C))}
-        a = C: {select(self.alpha == self.C)} 
-        a > C: {select(self.alpha > self.C)}
-        """)

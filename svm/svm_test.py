@@ -1,25 +1,15 @@
-from functools import partial
-from typing import List, Tuple
-
-import pandas as pd
-from sklearn.model_selection import KFold
-from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score
-from tqdm import tqdm
-
+import pandas as pd
+from sklearn.model_selection import GridSearchCV
 from tqdm.contrib.concurrent import process_map as pm
 
-from utils.data_set import DataSet
-from utils.methods import *
-from utils.plots import hist
 from svm.smv import *
+from utils.data_set import DataSet
+from utils.methods import log_action
 
 FILE_MASK = "data/{0}.csv"
-ITERATIONS = 3000
 
 CHOOSE_BEST_THREADS = 12
-C_CHOOSE = [0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 
 
 def read_dataset(filename) -> DataSet:
@@ -44,20 +34,13 @@ def draw(clf: SVM, ds: DataSet, step):
 
     mesh_dots = np.c_[xx.ravel(), yy.ravel()]
 
-    predict_z = np.array(pm_predict(clf.predict, mesh_dots, name='predict')).reshape(xx.shape)
-    predict_soft_z = np.array(pm_predict(clf.predict_soft, mesh_dots, name='predict soft')).reshape(xx.shape)
+    predict_z = np.array(pm_predict(clf.predict_single, mesh_dots, name='predict')).reshape(xx.shape)
 
     x0, y0 = X[y == -1].T
     x1, y1 = X[y == 1].T
 
-    sup_ind = clf.get_suport_indices()
-    X_sup = X[sup_ind]
+    X_sup = X[clf.sv_idx]
     x_sup, y_sup = X_sup.T
-
-    bad = clf.get_bad_idx()
-    X_bad = X[bad]
-
-    x_bad, y_bad = X_bad.T
 
     def plot(_predict_z):
         plt.figure(figsize=(10, 10))
@@ -66,96 +49,52 @@ def draw(clf: SVM, ds: DataSet, step):
         plt.scatter(x1, y1, color='blue', s=100)
 
         plt.scatter(x_sup, y_sup, color='white', marker='x', s=60)
-        plt.scatter(x_bad, y_bad, color='black', marker='X', s=60)
         plt.show()
 
     plot(predict_z)
-    plot(predict_soft_z)
 
 
-KERNELS = [
+def flatten(a):
+    if isinstance(a, list):
+        if len(a) == 0:
+            return []
+        return flatten(a[0]) + flatten(a[1:])
+    return [a]
+
+KERNELS = flatten([
     Linear(),
-    RBF(1),
-    RBF(2),
-    RBF(3),
-    RBF(4),
-    RBF(5),
-    Poly(2),
-    Poly(3),
-    Poly(4),
-    Poly(5)
-]
+    [RBF(beta) for beta in [0.001, 0.01, 0.1, 1.0, 2.0, 3.0, 4.0, 5.0]],
+    [Poly(d, 0) for d in range(2, 6)],
+])
 
-SVMS = [
-    SVM(max_iter=ITERATIONS, C=c, kernel=k)
-    for k in KERNELS
-    for c in C_CHOOSE
-]
+GRID = {
+    "C": [0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 1000.0],
+    "kernel": KERNELS,
+    'max_iter': [100, 500, 1000]
+}
 
 
-def accuracy(actual: np.ndarray, predicted: np.ndarray):
-    return 1.0 - ((actual != predicted).sum() / float(actual.shape[0]))
+def choose_best(ds: DataSet):
+    gs = GridSearchCV(estimator=SVM(),
+                      param_grid=GRID,
+                      cv=4,
+                      scoring='accuracy',
+                      verbose=1,
+                      n_jobs=-1)
+
+    gs.fit(ds.get_X(), ds.get_y())
+
+    print(f'Got best score {gs.best_score_} with params {gs.best_params_}')
+    return gs.best_params_
 
 
-def score(svm: SVM, ds: DataSet) -> float:
-    cv = KFold(4)
-    scores = []
-    for train_index, test_index in cv.split(ds.get_X()):
-        cv_data_set = ds.get_for_cross_validation(train_index, test_index)
+def process(name):
+    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format(name)), with_start_msg=True)
+    svm_best_params = log_action("Choosing best svm", lambda: choose_best(ds), with_start_msg=True)
 
-        svm.fit(cv_data_set.get_X(), cv_data_set.get_y())
-
-        y_pred = np.apply_along_axis(svm.predict, 1, cv_data_set.get_test_X())
-        scores.append(accuracy_score(cv_data_set.get_test_y(), y_pred))
-    return np.average(np.array(scores))
-
-
-def draw_best_hist(scores, svms):
-    zipped = zip(scores, svms)
-    mp = group_by(lambda x: str(x[1].kernel), zipped)
-
-    def by_c(lst: List[Tuple[float, SVM]]):
-        return [find_in(lst, lambda x: x[1].C == C, default=0)[0] for C in C_CHOOSE]
-
-    res = {}
-    for k in mp.keys():
-        res[k] = by_c(mp[k])
-
-    hist(
-        res,
-        index=C_CHOOSE,
-        title='Accuracy by C',
-        x_label='C',
-        y_label='Accuracy'
-    )
-
-
-def choose(data_set: DataSet, svms: List[SVM]):
-    scores = pm(
-        partial(score, ds=data_set),
-        svms,
-        max_workers=CHOOSE_BEST_THREADS
-    )
-
-    draw_best_hist(scores, svms)
-
-    # noinspection PyTypeChecker
-    return svms[
-        np.argmax(
-            np.array(
-                scores
-            )
-        )
-    ]
-
-
-if __name__ == '__main__':
-    ds = log_action("Reading", lambda: read_dataset(FILE_MASK.format("chips")), with_start_msg=True)
-
-    svm_best = SVM(max_iter=ITERATIONS, C=50,
-                   kernel=RBF(1))  # log_action("Choosing best svm", lambda: choose(ds, SVMS), with_start_msg=True)
+    svm_best = SVM()
+    svm_best.set_params(**svm_best_params)
 
     print(f"Got {svm_best}")
     log_action("trainig", lambda: svm_best.fit(ds.get_X(), ds.get_y()), with_start_msg=True)
-    svm_best.stat()
-    log_action("drawing", lambda: draw(svm_best, ds, step=0.001))
+    log_action("drawing", lambda: draw(svm_best, ds, step=0.01))
