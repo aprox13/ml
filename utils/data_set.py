@@ -1,4 +1,20 @@
+from functools import reduce
+
 import numpy as np
+import pandas as pd
+
+
+def data_set_from_csv(train_file: str, test_file: str = None):
+    def read_file(file):
+        ds = pd.read_csv(file)
+        return ds.values[:, :-1], ds.values[:, -1]
+
+    train_X, train_y = read_file(train_file)
+    test_X, test_y = None, None
+
+    if test_file is not None:
+        test_X, test_y = read_file(test_file)
+    return DataSet(train_X, train_y, test_X, test_y)
 
 
 class DataSet:
@@ -34,3 +50,80 @@ class DataSet:
         count, features = self.X.shape
         test_count = self.get_test_X().shape[0] if self.get_test_X() is not None else 0
         return f"DataSet[features={features},count={count},test_count={test_count}]"
+
+
+class DSWithSplit:
+
+    def __init__(self, X, y, split):
+        assert X is not None
+        assert y is not None
+        assert split is not None
+
+        self.X = X
+        self.y = y
+        self.split = split
+
+    def __repr__(self):
+        return f'DataSet[n_features={self.X.shape[1]},size={self.X.shape[0]},split_size={len(self.split)}]'
+
+
+class DSBuilder:
+    _TEST = 'test'
+    _TRAIN = 'train'
+
+    def __init__(self):
+        self._parts = []
+
+    def append(self, train_X: np.ndarray, train_y: np.ndarray, test_X: np.ndarray, test_y: np.ndarray):
+        check = {
+            "train_X": train_X is None,
+            "train_y": train_y is None,
+            "test_X": test_X is None,
+            "test_y": test_y is None
+        }
+        is_none = list(map(lambda kv: kv[0], filter(lambda kv: kv[1], check.items())))
+
+        if len(is_none) != 0:
+            raise RuntimeError("Couldn't append, because " + ", ".join(is_none) + " is none")
+
+        if test_X.shape[0] != test_y.shape[0]:
+            raise RuntimeError("Couldn't append, because test data have diff shape")
+
+        if train_X.shape[0] != train_y.shape[0]:
+            raise RuntimeError("Couldn't append, because train data have diff shape")
+
+        self._parts.append(
+            (train_X, train_y)
+        )
+        self._parts.append(
+            (test_X, test_y)
+        )
+        return self
+
+    def build(self) -> DSWithSplit:
+        first_train, first_test = self._parts[0], self._parts[1]
+
+        def concat(trn, tst):
+            return np.concatenate((trn[0], tst[0])), np.concatenate((trn[1], tst[1]))
+
+        res_X, res_y = concat(first_train, first_test)
+
+        cv_res = [(0, len(first_train[0]), len(res_X))]
+
+        for i in range(2, len(self._parts), 2):
+            train = self._parts[i]
+            test = self._parts[i + 1]
+            start_idx = cv_res[-1][-1]
+
+            add_X, add_y = concat(train, test)
+
+            res_X = np.concatenate((res_X, add_X))
+            res_y = np.concatenate((res_y, add_y))
+
+            cv_res.append((start_idx, len(train[0]), len(res_X)))
+
+        cv = []
+        for start, len_train, end in cv_res:
+            cv.append((range(start, start + len_train), range(start + len_train, end)))
+
+        return DSWithSplit(res_X, res_y, list(map(lambda c: (list(c[0]), list(c[1])), cv)))
