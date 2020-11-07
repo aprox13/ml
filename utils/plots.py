@@ -49,12 +49,21 @@ def hist(data: dict, index, title='', x_label='', y_label=''):
     plt.show()
 
 
-def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', y_max=1.3):
+def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', y_extend=0.2):
+    y_max = 0
+    y_min = 2
+    for v in data.values():
+        y_max = max(y_max, max(v))
+        y_min = min(y_min, min(v))
+
+    y_max *= (1 + y_extend)
+    y_min = max(0, y_min * (1 - y_extend))
+
     for_data = colors(COLORS)
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(metric)
-    plt.ylim(0, y_max)
+    plt.ylim(y_min, y_max)
 
     text_shift = y_max * 0.025
 
@@ -64,7 +73,7 @@ def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accura
         target_x = x_values[v.index(max_value)]
 
         maximums.append((target_x, max_value, k))
-        plt.plot(x_values, v, color=next(for_data))
+        plt.plot(x_values, v, color=next(for_data), marker='.')
 
     xx = []
     yy = []
