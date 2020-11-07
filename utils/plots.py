@@ -49,25 +49,34 @@ def hist(data: dict, index, title='', x_label='', y_label=''):
     plt.show()
 
 
-def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', metric_max=1.3):
+def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', y_max=1.3):
     for_data = colors(COLORS)
-    dark = colors(DARK)
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(metric)
-    plt.ylim(0, metric_max)
-    legend = []
+    plt.ylim(0, y_max)
+
+    text_shift = y_max * 0.025
+
+    maximums = []
     for k, v in data.items():
         max_value = max(v)
         target_x = x_values[v.index(max_value)]
-        lines_c = next(dark)
 
-        plt.axhline(y=max_value, linestyle=':', color=lines_c)
-        plt.axvline(x=target_x, linestyle=':', color=lines_c)
+        maximums.append((target_x, max_value, k))
         plt.plot(x_values, v, color=next(for_data))
 
-        legend.append(f"{k}: {max_value}")
-        legend.append(f"depth {target_x}")
-        legend.append(k)
-    plt.legend(legend, loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=2)
+    xx = []
+    yy = []
+    for x, y, k in maximums:
+        xx.append(x)
+        yy.append(y)
+        txt = f"{k}, depth: {x}\n{metric}: {y}"
+        plt.text(x, y + text_shift, txt,
+                 horizontalalignment='center',
+                 verticalalignment='bottom')
+
+    plt.scatter(xx, yy, marker='x', color='#606060')
+
+    plt.legend(list(data.keys()), loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=2)
     plt.show()

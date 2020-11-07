@@ -1,7 +1,6 @@
 import time
 from functools import reduce
 from typing import TypeVar, Callable
-import copy
 
 T = TypeVar('T')
 

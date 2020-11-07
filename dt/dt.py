@@ -1,7 +1,7 @@
-from typing import List
-
 from sklearn.model_selection import GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
+from tqdm import tqdm
+import copy
 
 from utils.data_set import *
 from utils.methods import *
@@ -34,24 +34,24 @@ def train_file(i):
 
 
 def read_data_sets() -> List[DSWithSplit]:
-    dss = [data_set_from_csv(train_file(i), test_file(i)) for i in range(1, FILES_COUNT + 1)]
+    data_sets = [data_set_from_csv(train_file(i), test_file(i)) for i in range(1, FILES_COUNT + 1)]
 
     def build(ds: DataSet) -> DSWithSplit:
         ds_builder = DSBuilder()
         ds_builder.append(ds.get_X(), ds.get_y(), ds.get_test_X(), ds.get_test_y())
         return ds_builder.build()
 
-    return list(map(build, dss))
+    return list(map(build, data_sets))
 
 
-def optimize_params(ds: DSWithSplit) -> GridSearchCV:
+def optimize_params(ds: DSWithSplit, verbose: bool) -> GridSearchCV:
     grid_search = GridSearchCV(
         estimator=DecisionTreeClassifier(),
         param_grid=GRID,
         n_jobs=-1,
         scoring='accuracy',
         return_train_score=True,
-        verbose=VERBOSE_GRID_SEARCH,
+        verbose=VERBOSE_GRID_SEARCH if verbose else 0,
         cv=ds.split
     )
     res = grid_search.fit(ds.X, ds.y)
@@ -65,9 +65,10 @@ PARAMS = 'params'
 MAX_DEPTH = 'max_depth'
 
 
-def process_data_set(ds: DSWithSplit):
-    print(f"Processing {ds}")
-    cv_res = optimize_params(ds)
+def process_data_set(ds: DSWithSplit, verbose: bool):
+    if verbose:
+        print(f"Processing {ds}")
+    cv_res = optimize_params(ds, verbose)
     params = cv_res.best_params_
     to_search = copy.deepcopy(params)
 
@@ -83,15 +84,16 @@ def process_data_set(ds: DSWithSplit):
         statistic['test'].append(float(cv_res.cv_results_[TEST_SCORE][idx]))
         statistic['train'].append(float(cv_res.cv_results_[TRAIN_SCORE][idx]))
 
-    print(f'DataSet processed with {cv_res.cv_results_[TRAIN_SCORE][cv_res.best_index_]} train score, '
-          f'and {cv_res.cv_results_[TEST_SCORE][cv_res.best_index_]} test score, depth is {params[MAX_DEPTH]}')
+    if verbose:
+        print(f'DataSet processed with {cv_res.cv_results_[TRAIN_SCORE][cv_res.best_index_]} train score, '
+              f'and {cv_res.cv_results_[TEST_SCORE][cv_res.best_index_]} test score, depth is {params[MAX_DEPTH]}')
     return params, statistic
 
 
-def dt(data_sets: List[DSWithSplit]):
+def dt(data_sets: List[DSWithSplit], verbose=False):
     params_and_stat = []
-    for i in range(len(data_sets)):
-        params, statistic = process_data_set(data_sets[i])
+    for i in tqdm(range(len(data_sets))):
+        params, statistic = process_data_set(data_sets[i], verbose)
         params_and_stat.append((i, params, statistic))
 
     def more_than(e1, e2):
@@ -121,20 +123,19 @@ def dt(data_sets: List[DSWithSplit]):
         if more_than(min_depth_tree, tree_stat):
             min_depth_tree = tree_stat
 
-    print(f"Got min stat {min_depth_tree}")
-    print(f"Got max stat {max_depth_tree}")
+    if verbose:
+        print(f"Got min stat {min_depth_tree}")
+        print(f"Got max stat {max_depth_tree}")
 
-    def get_title(e, is_min):
-        _, p, s = e
-        title = "Min" if is_min else 'Max'
-        title += ". "
+    def get_title(e):
+        idx, p, s = e
+        title = f'DataSet #{idx + 1}'
+        title += ". Params"
         title += f"{CRITERION}='{p[CRITERION]}',{SPLITTER}='{p[SPLITTER]}'"
         return title
 
-    metric_plot(min_depth_tree[-1], DEPTH_CHOOSE, title=get_title(min_depth_tree, is_min=True))
-    metric_plot(max_depth_tree[-1], DEPTH_CHOOSE, title=get_title(max_depth_tree, is_min=False))
-
-    pass
+    metric_plot(min_depth_tree[-1], DEPTH_CHOOSE, title=get_title(min_depth_tree))
+    metric_plot(max_depth_tree[-1], DEPTH_CHOOSE, title=get_title(max_depth_tree))
 
 
 if __name__ == '__main__':
