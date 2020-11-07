@@ -132,10 +132,11 @@ def dt(data_sets: List[DSWithSplit]):
         return title
 
     metric_plot(min_depth_tree[-1], DEPTH_CHOOSE, title=get_title(min_depth_tree, is_min=True))
+    metric_plot(max_depth_tree[-1], DEPTH_CHOOSE, title=get_title(max_depth_tree, is_min=False))
 
     pass
 
 
 if __name__ == '__main__':
-    dss = read_data_sets()
-    dt(dss[1:2])
+    dss = log_action('loading data sets', lambda: read_data_sets())
+    dt(dss)
