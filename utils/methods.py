@@ -1,6 +1,7 @@
 import time
 from functools import reduce
 from typing import TypeVar, Callable
+import copy
 
 T = TypeVar('T')
 
@@ -41,3 +42,20 @@ def log_action(action_name, action: Callable[[], T], with_start_msg=False, with_
 
     print(f"'{action_name}' ends in {end_time_s}{result_part}")
     return res
+
+
+def dict_contains(d: dict):
+    def contains_inner(outer_dict: dict):
+        for k, v in d.items():
+            if k not in outer_dict or outer_dict[k] != v:
+                return False
+        return True
+
+    return contains_inner
+
+
+def index_where(predicate, lst):
+    for i in range(len(lst)):
+        if predicate(lst[i]):
+            return i
+    return -1
