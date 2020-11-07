@@ -74,7 +74,19 @@ class DSBuilder:
     def __init__(self):
         self._parts = []
 
-    def append(self, train_X: np.ndarray, train_y: np.ndarray, test_X: np.ndarray, test_y: np.ndarray):
+    @staticmethod
+    def of(ds: DataSet):
+        b = DSBuilder()
+        b.append(ds=ds)
+        return b.build()
+
+    def append(self, train_X: np.ndarray = None, train_y: np.ndarray = None,
+               test_X: np.ndarray = None, test_y: np.ndarray = None,
+               ds: DataSet = None):
+
+        if ds is not None:
+            return self.append(ds.get_X(), ds.get_y(), ds.get_test_X(), ds.get_test_y())
+
         check = {
             "train_X": train_X is None,
             "train_y": train_y is None,
