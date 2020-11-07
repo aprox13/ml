@@ -36,12 +36,7 @@ def train_file(i):
 def read_data_sets() -> List[DSWithSplit]:
     data_sets = [data_set_from_csv(train_file(i), test_file(i)) for i in range(1, FILES_COUNT + 1)]
 
-    def build(ds: DataSet) -> DSWithSplit:
-        ds_builder = DSBuilder()
-        ds_builder.append(ds.get_X(), ds.get_y(), ds.get_test_X(), ds.get_test_y())
-        return ds_builder.build()
-
-    return list(map(build, data_sets))
+    return list(map(DSBuilder.of, data_sets))
 
 
 def optimize_params(ds: DSWithSplit, verbose: bool) -> GridSearchCV:
@@ -130,7 +125,7 @@ def dt(data_sets: List[DSWithSplit], verbose=False):
     def get_title(e):
         idx, p, s = e
         title = f'DataSet #{idx + 1}'
-        title += ". Params"
+        title += ". Params: "
         title += f"{CRITERION}='{p[CRITERION]}',{SPLITTER}='{p[SPLITTER]}'"
         return title
 
