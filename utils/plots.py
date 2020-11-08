@@ -3,6 +3,7 @@ from typing import List
 import matplotlib.pyplot as plt
 import pandas as pd
 from random import shuffle
+import statistics
 
 COLORS = [
     "#BA68C8",
@@ -56,8 +57,10 @@ def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accura
         y_max = max(y_max, max(v))
         y_min = min(y_min, min(v))
 
-    y_max *= (1 + y_extend)
-    y_min = max(0, y_min * (1 - y_extend))
+    dy = y_max - y_min
+
+    y_max += dy * y_extend
+    y_min = max(0, y_min - dy * y_extend)
 
     for_data = colors(COLORS)
     plt.title(title)
@@ -65,7 +68,7 @@ def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accura
     plt.ylabel(metric)
     plt.ylim(y_min, y_max)
 
-    text_shift = y_max * 0.025
+    text_shift = dy * 0.025
 
     maximums = []
     for k, v in data.items():
@@ -77,13 +80,15 @@ def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accura
 
     xx = []
     yy = []
+    x_med = statistics.median(x_values)
     for x, y, k in maximums:
         xx.append(x)
         yy.append(y)
         txt = f"{k}, depth: {x}\n{metric}: {y}"
+        ha = 'left' if x < x_med else 'right'
         if with_text:
             plt.text(x, y + text_shift, txt,
-                     horizontalalignment='center',
+                     horizontalalignment=ha,
                      verticalalignment='bottom')
 
     plt.scatter(xx, yy, marker='x', color='#606060')
