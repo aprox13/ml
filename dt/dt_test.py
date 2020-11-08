@@ -1,8 +1,10 @@
+import copy
+
 from sklearn.model_selection import GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
 from tqdm import tqdm
-import copy
 
+from dt.df import DecisionForest
 from utils.data_set import *
 from utils.methods import *
 from utils.plots import *
@@ -39,15 +41,15 @@ def read_data_sets() -> List[DSWithSplit]:
     return list(map(DSBuilder.of, data_sets))
 
 
-def optimize_params(ds: DSWithSplit, verbose: bool) -> GridSearchCV:
+def optimize_params(ds: DSWithSplit, verbose: bool, grid, estimator) -> GridSearchCV:
     grid_search = GridSearchCV(
-        estimator=DecisionTreeClassifier(),
-        param_grid=GRID,
+        estimator=estimator,
+        param_grid=grid,
         n_jobs=-1,
         scoring='accuracy',
         return_train_score=True,
         verbose=VERBOSE_GRID_SEARCH if verbose else 0,
-        cv=ds.split
+        cv=ds.splits
     )
     res = grid_search.fit(ds.X, ds.y)
     return res
@@ -63,7 +65,7 @@ MAX_DEPTH = 'max_depth'
 def process_data_set(ds: DSWithSplit, verbose: bool):
     if verbose:
         print(f"Processing {ds}")
-    cv_res = optimize_params(ds, verbose)
+    cv_res = optimize_params(ds, verbose, GRID, DecisionTreeClassifier())
     params = cv_res.best_params_
     to_search = copy.deepcopy(params)
 
@@ -133,6 +135,58 @@ def dt(data_sets: List[DSWithSplit], verbose=False):
     metric_plot(max_depth_tree[-1], DEPTH_CHOOSE, title=get_title(max_depth_tree))
 
 
+def forest(data_sets: List[DSWithSplit], verbose=False):
+    ds = data_sets[0]
+
+    tree_choice = list(range(1, 10))
+    grid = {
+        'samples_per_tree': ['all', 'sqrt'],
+        'features_per_tree': ['all', 'sqrt'],
+        'tree_params': [{CRITERION: 'gini'}],
+        'trees_cnt': tree_choice
+    }
+
+    clf = optimize_params(ds, verbose, grid, DecisionForest())
+
+    cases = {}
+    for spt in ['all', 'sqrt']:
+        for fpt in ['all', 'sqrt']:
+            label = f'{spt}_{fpt}'
+            cases[label] = {'samples_per_tree': spt,
+                            'features_per_tree': fpt}
+
+    cv_res = clf.cv_results_
+    res_stat = {}
+    for k in cases.keys():
+        res_stat[f'test_{k}'] = []
+        res_stat[f'train_{k}'] = []
+
+    for k, fltr in cases.items():
+        for tree_count in tree_choice:
+            fltr['trees_cnt'] = tree_count
+
+            idx = index_where(dict_contains(fltr), cv_res[PARAMS])
+            res_stat[f'test_{k}'].append(
+                float(cv_res[TEST_SCORE][idx])
+            )
+            res_stat[f'train_{k}'].append(
+                float(cv_res[TEST_SCORE][idx])
+            )
+
+    metric_plot(res_stat, tree_choice, '', with_text=False)
+
+    # train_X, train_y, test_X, test_y = ds.split_first()
+    #
+    # f = DecisionForest(trees_cnt=10, tree_params={CRITERION: 'gini', 'max_features': len(train_X)})
+    # log_action('Fitting forest', lambda: f.fit(train_X, train_y), with_start_msg=True, verbose=verbose)
+    #
+    # from sklearn.metrics import accuracy_score
+    #
+    # y_pred = f.predict(test_X)
+    # print(accuracy_score(y_pred, test_y))
+
+
 if __name__ == '__main__':
     dss = log_action('loading data sets', lambda: read_data_sets())
-    dt(dss)
+    # dt(dss)
+    forest(dss, verbose=True)

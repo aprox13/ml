@@ -61,10 +61,16 @@ class DSWithSplit:
 
         self.X = X
         self.y = y
-        self.split = split
+        self.splits = split
 
     def __repr__(self):
-        return f'DataSet[n_features={self.X.shape[1]},size={self.X.shape[0]},split_size={len(self.split)}]'
+        return f'DataSet[n_features={self.X.shape[1]},size={self.X.shape[0]},split_size={len(self.splits)}]'
+
+    def split_first(self):
+        assert len(self.splits) > 0
+
+        splt = self.splits[0]
+        return self.X[splt[0]], self.y[splt[0]], self.X[splt[1]], self.y[splt[1]]
 
 
 class DSBuilder:

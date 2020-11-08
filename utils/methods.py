@@ -1,6 +1,8 @@
 import time
 from functools import reduce
+from random import shuffle
 from typing import TypeVar, Callable
+import numpy as np
 
 T = TypeVar('T')
 
@@ -25,9 +27,12 @@ def pretty_time(millis: int) -> str:
     return "0ms"
 
 
-def log_action(action_name, action: Callable[[], T], with_start_msg=False, with_result=True) -> T:
+def log_action(action_name, action: Callable[[], T], with_start_msg=False, with_result=True, verbose=True) -> T:
     def millis():
         return int(round(time.time() * 1000))
+
+    if not verbose:
+        return action()
 
     if with_start_msg:
         print(f"starting '{action_name}'")

@@ -49,7 +49,7 @@ def hist(data: dict, index, title='', x_label='', y_label=''):
     plt.show()
 
 
-def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', y_extend=0.2):
+def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', y_extend=0.2, with_text=True):
     y_max = 0
     y_min = 2
     for v in data.values():
@@ -81,9 +81,10 @@ def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accura
         xx.append(x)
         yy.append(y)
         txt = f"{k}, depth: {x}\n{metric}: {y}"
-        plt.text(x, y + text_shift, txt,
-                 horizontalalignment='center',
-                 verticalalignment='bottom')
+        if with_text:
+            plt.text(x, y + text_shift, txt,
+                     horizontalalignment='center',
+                     verticalalignment='bottom')
 
     plt.scatter(xx, yy, marker='x', color='#606060')
 
