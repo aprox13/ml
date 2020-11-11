@@ -76,7 +76,7 @@ def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accura
         target_x = x_values[v.index(max_value)]
 
         maximums.append((target_x, max_value, k))
-        plt.plot(x_values, v, color=next(for_data), marker='.')
+        plt.plot(x_values, v, color=next(for_data))
 
     xx = []
     yy = []
