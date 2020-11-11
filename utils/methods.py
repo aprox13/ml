@@ -63,10 +63,16 @@ def dict_contains(d: dict):
 
 
 def index_where(predicate, lst):
+    r = indices_where(predicate, lst)
+    return -1 if len(r) == 0 else r[0]
+
+
+def indices_where(predicate, lst):
+    res = []
     for i in range(len(lst)):
         if predicate(lst[i]):
-            return i
-    return -1
+            res.append([i])
+    return res
 
 
 def filter_key(f, d: dict):
@@ -74,4 +80,16 @@ def filter_key(f, d: dict):
     for k, v in d.items():
         if f(k):
             res[k] = v
+    return res
+
+
+def join(d1: dict, d2: dict) -> dict:
+    res = {}
+
+    def join_inner(d):
+        for k, v in d.items():
+            res[k] = v
+
+    join_inner(d1)
+    join_inner(d2)
     return res

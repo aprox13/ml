@@ -37,7 +37,9 @@ class SMO(BaseEstimator):
         return np.dot(x, y.T) ** self.degree + 1
 
     def _kernel_rbf(self, x, y):
-        return np.exp(-self.gamma * dist.cdist(x, y) ** 2).flatten()
+        tx = np.atleast_2d(x)
+        ty = np.atleast_2d(y)
+        return np.exp(-self.gamma * dist.cdist(tx, ty) ** 2).flatten()
 
     def _kernel(self, x, y):
         return SMO.__getattribute__(self, f'_kernel_{self.kernel}')(x, y)
