@@ -115,6 +115,9 @@ def kernel_to_s(d):
 
 
 def draw_metrics(cv_res):
+    for i in range(len(cv_res['params'])):
+        print(i, cv_res['params'][i])
+
     for iter in BASIC_GRID["max_iters"]:
         data = {}
 
@@ -124,21 +127,17 @@ def draw_metrics(cv_res):
             data[key].append(v)
 
         for C in BASIC_GRID['C']:
-            for kernel in map(lambda d: d['kernel'], GRID):
-                search = {
-                    'kernel': kernel,
-                    'C': C,
-                    'max_iters': iter
-                }
-                idx = index_where(dict_contains(search), cv_res['params'])
+            for kernel in map(lambda d: d['kernel'][0], GRID):
+                idx = index_where(has_all(C=C, max_iters=iter, kernel=kernel), cv_res['params'])
                 name = kernel_to_s(cv_res['params'][idx])
+                print("got idx for", name, idx)
                 append_metric(name, cv_res['mean_test_score'][idx])
         metric_plot(
             data,
             BASIC_GRID['C'],
             f"Test score with max iters {iter}",
             x_label='C',
-            with_text='false'
+            with_text=False
         )
 
 
