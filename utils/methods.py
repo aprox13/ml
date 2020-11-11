@@ -48,6 +48,10 @@ def log_action(action_name, action: Callable[[], T], with_start_msg=False, with_
     return res
 
 
+def has_all(**kwargs):
+    return dict_contains(kwargs)
+
+
 def dict_contains(d: dict):
     def contains_inner(outer_dict: dict):
         for k, v in d.items():
