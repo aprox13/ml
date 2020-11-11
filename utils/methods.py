@@ -63,3 +63,11 @@ def index_where(predicate, lst):
         if predicate(lst[i]):
             return i
     return -1
+
+
+def filter_key(f, d: dict):
+    res = {}
+    for k, v in d.items():
+        if f(k):
+            res[k] = v
+    return res

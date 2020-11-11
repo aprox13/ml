@@ -134,15 +134,20 @@ def dt(data_sets: List[DSWithSplit], verbose=False):
     metric_plot(min_depth_tree[-1], DEPTH_CHOOSE, title=get_title(min_depth_tree))
     metric_plot(max_depth_tree[-1], DEPTH_CHOOSE, title=get_title(max_depth_tree))
 
+    def result(e):
+        i, p, _ = e
+        return dss[i], filter_key(lambda k: k != MAX_DEPTH, p)
 
-def forest(data_sets: List[DSWithSplit], verbose=False):
-    ds = data_sets[0]
+    return result(min_depth_tree), result(max_depth_tree)
 
-    tree_choice = list(range(1, 10))
+
+def forest(ds: DSWithSplit, tree_params, verbose=False):
+    print(tree_params)
+    tree_choice = list(range(1, 100))
     grid = {
         'samples_per_tree': ['all', 'sqrt'],
         'features_per_tree': ['all', 'sqrt'],
-        'tree_params': [{CRITERION: 'gini'}],
+        'tree_params': [tree_params],
         'trees_cnt': tree_choice
     }
 
@@ -170,23 +175,24 @@ def forest(data_sets: List[DSWithSplit], verbose=False):
                 float(cv_res[TEST_SCORE][idx])
             )
             res_stat[f'train_{k}'].append(
-                float(cv_res[TEST_SCORE][idx])
+                float(cv_res[TRAIN_SCORE][idx])
             )
 
-    metric_plot(res_stat, tree_choice, '', with_text=False)
+    data_test = {}
+    data_train = {}
+    for k, v in res_stat.items():
+        if k.startswith('test'):
+            data_test[k] = v
+        else:
+            data_train[k] = v
 
-    # train_X, train_y, test_X, test_y = ds.split_first()
-    #
-    # f = DecisionForest(trees_cnt=10, tree_params={CRITERION: 'gini', 'max_features': len(train_X)})
-    # log_action('Fitting forest', lambda: f.fit(train_X, train_y), with_start_msg=True, verbose=verbose)
-    #
-    # from sklearn.metrics import accuracy_score
-    #
-    # y_pred = f.predict(test_X)
-    # print(accuracy_score(y_pred, test_y))
+    metric_plot(data_test, tree_choice, f'Test {tree_params}', with_text=False)
+    metric_plot(data_train, tree_choice, f'Train {tree_params}', with_text=False)
 
 
 if __name__ == '__main__':
     dss = log_action('loading data sets', lambda: read_data_sets())
-    # dt(dss)
-    forest(dss, verbose=True)
+    mds, mxds = dt(dss)
+
+    forest(mds[0], mds[1], verbose=True)
+    forest(mxds[0], mxds[1], verbose=True)
