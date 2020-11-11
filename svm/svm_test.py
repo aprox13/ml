@@ -85,7 +85,7 @@ RBF_GRID = basic_with({'kernel': ['rbf'], 'gamma': [0.001, 0.01, 0.1, 1.0, 2.0, 
 
 GRID = [
     LINEAR_GRID,
-    # RBF_GRID
+    RBF_GRID
 ]
 
 
