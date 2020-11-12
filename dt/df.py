@@ -6,11 +6,6 @@ from sklearn.tree import DecisionTreeClassifier
 import numpy as np
 
 
-def most_frequent_elem(elems):
-    groups, counts = np.unique(elems, return_counts=True)
-    return groups[np.argmax(counts)]
-
-
 class DecisionForest(BaseEstimator):
 
     @staticmethod
@@ -37,20 +32,21 @@ class DecisionForest(BaseEstimator):
     def train_tree(self, idx, X, y):
         cnt, dim = X.shape
         tree_sample_size = self._get_count(self.samples_per_tree, cnt)
-        perm = np.random.choice(cnt, tree_sample_size, replace=True)
+        selected = np.random.choice(cnt, tree_sample_size, replace=True)
         tree = DecisionTreeClassifier()
         tree.set_params(**self.tree_params)
-        tree.fit(X[perm][:, self.trees_features[idx]], y[perm])
+        tree.fit(X[selected][:, self.trees_features[idx]], y[selected])
         return tree
 
     def fit(self, X, y):
-        cnt, dim = X.shape
-        tree_features = self._get_count(self.features_per_tree, dim)
-
+        _, M = X.shape
+        tree_features = self._get_count(self.features_per_tree, M)
         self.tree_params['max_features'] = tree_features
-        self.trees_features = [np.random.choice(dim, tree_features, replace=False) for _ in range(self.trees_cnt)]
-        self.trees = Parallel(n_jobs=-1)(delayed(self.train_tree)(i, X, y)
-                                         for i in range(self.trees_cnt))
+        self.trees_features = [np.random.choice(M, tree_features, replace=False) for _ in range(self.trees_cnt)]
+        self.trees = Parallel(n_jobs=-1)(
+            delayed(self.train_tree)(i, X, y)
+            for i in range(self.trees_cnt)
+        )
 
     def predict_one(self, x):
         decisions = np.zeros(self.trees_cnt)
@@ -63,7 +59,9 @@ class DecisionForest(BaseEstimator):
 
         for i in range(self.trees_cnt):
             decisions[i] = tree_pred_one(i, x[self.trees_features[i]])
-        return most_frequent_elem(decisions)
+
+        groups, cnt = np.unique(decisions, return_counts=True)
+        return groups[np.argmax(cnt)]
 
     def predict(self, X):
         return np.apply_along_axis(self.predict_one, 1, X)
