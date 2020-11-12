@@ -72,9 +72,7 @@ class SMO(BaseEstimator):
         ).reshape((N, N))
 
         self.a = np.zeros(N)
-        iters = 0
-        while iters < self.max_iters:
-            iters += 1
+        for _ in range(self.max_iters):
             alpha_prev = np.copy(self.a)
 
             for j in range(N):
@@ -87,27 +85,34 @@ class SMO(BaseEstimator):
                 y_i = self.y[i]
                 y_j = self.y[j]
 
+                a_i = self.a[i]
+                a_j = self.a[j]
+
                 eta = 2.0 * K_ij - K_ii - K_jj
                 if eta >= 0:
                     continue
-                L, H = self._find_bounds(i, j)
 
-                E_i, E_j = self._error(i), self._error(j)
+                if y_i == y_j:
+                    L = max(0, a_i + a_j - C)
+                    H = min(C, a_i + a_j)
+                else:
+                    L = max(0, a_j - a_i)
+                    H = min(C, C - a_i + a_j)
 
-                alpha_io, alpha_jo = self.a[i], self.a[j]
+                E_i = self._predict_learn(i) - self.y[i]
+                E_j = self._predict_learn(j) - self.y[j]
 
                 self.a[j] = bound(
-                    alpha_jo - (y_j * (E_i - E_j)) / eta,
+                    a_j - (y_j * (E_i - E_j)) / eta,
                     max_v=H,
                     min_v=L)
 
-                self.a[i] = alpha_io + y_i * y_j * (alpha_jo - self.a[j])
+                self.a[i] = a_i + y_i * y_j * (a_j - self.a[j])
 
-                da_i = self.a[i] - alpha_io
-                da_j = self.a[j] - alpha_jo
+                da_i = self.a[i] - a_i
+                da_j = self.a[j] - a_j
 
                 b1 = self.b - E_i - y_i * da_i * K_ii - y_j * da_j * K_ij
-
                 b2 = self.b - E_j - y_j * da_j * K_jj - y_i * da_i * K_ij
 
                 if 0 < self.a[i] < C:
@@ -117,8 +122,7 @@ class SMO(BaseEstimator):
                 else:
                     self.b = (b1 + b2) / 2.0
 
-            diff = np.linalg.norm(self.a - alpha_prev)
-            if diff < self.eps:
+            if np.linalg.norm(self.a - alpha_prev) < self.eps:
                 break
 
         self.support_indices = np.where(self.a > 0)[0]
@@ -132,18 +136,6 @@ class SMO(BaseEstimator):
     def _predict_learn(self, i):
         k_v = self._kernel_matrix[i, :]  # X @ X[i]
         return np.dot((self.a * self.y), k_v) + self.b
-
-    def _error(self, i):
-        return self._predict_learn(i) - self.y[i]
-
-    def _find_bounds(self, i, j):
-        if self.y[i] != self.y[j]:
-            L = max(0, self.a[j] - self.a[i])
-            H = min(self.C, self.C - self.a[i] + self.a[j])
-        else:
-            L = max(0, self.a[i] + self.a[j] - self.C)
-            H = min(self.C, self.a[i] + self.a[j])
-        return L, H
 
     def predict_single(self, X):
         k_v = self._kernel(self.X_for_predict, X)
