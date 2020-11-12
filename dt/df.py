@@ -34,7 +34,7 @@ class DecisionForest(BaseEstimator):
         self.trees_features = None
         self.trees = None
 
-    def train_tree(self, idx, X, y, features_per_node):
+    def train_tree(self, idx, X, y):
         cnt, dim = X.shape
         tree_sample_size = self._get_count(self.samples_per_tree, cnt)
         perm = np.random.choice(cnt, tree_sample_size, replace=True)
@@ -47,11 +47,9 @@ class DecisionForest(BaseEstimator):
         cnt, dim = X.shape
         tree_features = self._get_count(self.features_per_tree, dim)
 
-        features_per_node = tree_features
-
-        self.tree_params['max_features'] = features_per_node
+        self.tree_params['max_features'] = tree_features
         self.trees_features = [np.random.choice(dim, tree_features, replace=False) for _ in range(self.trees_cnt)]
-        self.trees = Parallel(n_jobs=-1)(delayed(self.train_tree)(i, X, y, features_per_node)
+        self.trees = Parallel(n_jobs=-1)(delayed(self.train_tree)(i, X, y)
                                          for i in range(self.trees_cnt))
 
     def predict_one(self, x):

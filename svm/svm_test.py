@@ -31,10 +31,9 @@ def draw(clf, ds: DataSet, step):
     xx, yy = np.meshgrid(np.arange(x_min, x_max, step),
                          np.arange(y_min, y_max, step))
 
-    mesh_dots = np.c_[xx.ravel(), yy.ravel()]
+    grid = np.c_[xx.ravel(), yy.ravel()]
 
-    predict_z = np.array(pm_predict(clf.predict_single, mesh_dots, name='predict')).reshape(xx.shape)
-    # predict_z = np.array(np.apply_along_axis(clf.predict_single, 1, mesh_dots)).reshape(xx.shape)
+    predict_z = np.array(pm_predict(clf.predict_single, grid, name='predict')).reshape(xx.shape)
 
     x0, y0 = X[y == -1].T
     x1, y1 = X[y == 1].T
@@ -112,10 +111,12 @@ def kernel_to_s(d):
         return f'poly, d={d["degree"]}'
     return 'unknown'
 
+
 metrics_params = {
     'linear': ['kernel'],
     'rbf': ['gamma']
 }
+
 
 def draw_metrics(cv_res):
     for iter in BASIC_GRID["max_iters"]:
@@ -163,4 +164,4 @@ def process(name):
 
 
 if __name__ == '__main__':
-    process('chips')
+    process('geyser')
