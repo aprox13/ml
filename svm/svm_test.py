@@ -79,7 +79,7 @@ def basic_with(d: dict):
 
 LINEAR_GRID = basic_with({'kernel': ['linear']})
 RBF_GRID = basic_with({'kernel': ['rbf'], 'gamma': [0.001, 0.01, 0.1, 1.0, 2.0, 3.0, 4.0, 5.0]})
-POLY_GRID = basic_with({'kernel': ['poly'], 'degree': [2, 3, 4, 5]})
+POLY_GRID = basic_with({'kernel': ['poly'], 'degree': [2.0, 3.0, 4.0, 5.0]})
 
 GRID = [
     LINEAR_GRID,
