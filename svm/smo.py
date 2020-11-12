@@ -136,9 +136,9 @@ class SMO(BaseEstimator):
         return np.apply_along_axis(self.predict_single, 1, X)
 
     def _predict_learn(self, i):
-        k_v = self._kernel_matrix[i, :]  # X @ X[i]
-        return np.dot((self.a * self.y), k_v) + self.b
+        K = self._kernel_matrix[i, :]  # X @ X[i]
+        return np.dot((self.a * self.y), K) + self.b
 
     def predict_single(self, X):
-        k_v = self._kernel(self.X_for_predict, X)
-        return np.sign(np.dot(self.a_dot_y, k_v) + self.b)
+        K = self._kernel(self.X_for_predict, X)
+        return np.sign(np.dot(self.a_dot_y, K) + self.b)

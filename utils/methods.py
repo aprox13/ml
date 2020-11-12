@@ -1,8 +1,6 @@
 import time
 from functools import reduce
-from random import shuffle
 from typing import TypeVar, Callable
-import numpy as np
 
 T = TypeVar('T')
 

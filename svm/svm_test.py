@@ -1,6 +1,8 @@
 from sklearn.model_selection import GridSearchCV
 from tqdm.contrib.concurrent import process_map as pm
 
+import numpy as np
+
 from svm.smo import SMO
 from utils.data_set import DataSet
 from utils.methods import *
