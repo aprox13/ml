@@ -50,7 +50,8 @@ def hist(data: dict, index, title='', x_label='', y_label=''):
     plt.show()
 
 
-def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', y_extend=0.2, with_text=True):
+def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accuracy', y_extend=0.2, with_text=True,
+                default_color=False, fit_x=False, n_col=2):
     y_max = 0
     y_min = 2
     for v in data.values():
@@ -76,22 +77,29 @@ def metric_plot(data: dict, x_values: List, title='', x_label='', metric='Accura
         target_x = x_values[v.index(max_value)]
 
         maximums.append((target_x, max_value, k))
-        plt.plot(x_values, v, color=next(for_data))
+        xv = list(range(len(x_values))) if fit_x else x_values
+        if fit_x:
+            plt.xticks(xv, labels=x_values)
+        if default_color:
+            plt.plot(xv, v)
+        else:
+            plt.plot(xv, v, color=next(for_data))
 
-    xx = []
-    yy = []
-    x_med = statistics.median(x_values)
-    for x, y, k in maximums:
-        xx.append(x)
-        yy.append(y)
-        txt = f"{k}, depth: {x}\n{metric}: {y}"
-        ha = 'left' if x < x_med else 'right'
-        if with_text:
-            plt.text(x, y + text_shift, txt,
-                     horizontalalignment=ha,
-                     verticalalignment='bottom')
+    if not fit_x:
+        xx = []
+        yy = []
+        x_med = statistics.median(x_values)
+        for x, y, k in maximums:
+            xx.append(x)
+            yy.append(y)
+            txt = f"{k}, depth: {x}\n{metric}: {y}"
+            ha = 'left' if x < x_med else 'right'
+            if with_text:
+                plt.text(x, y + text_shift, txt,
+                         horizontalalignment=ha,
+                         verticalalignment='bottom')
 
-    plt.scatter(xx, yy, marker='x', color='#606060')
+        plt.scatter(xx, yy, marker='x', color='#606060')
 
-    plt.legend(list(data.keys()), loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=2)
+    plt.legend(list(data.keys()), loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=n_col)
     plt.show()

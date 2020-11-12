@@ -1,9 +1,6 @@
-import matplotlib.pyplot as plt
-import pandas as pd
 from sklearn.model_selection import GridSearchCV
 from tqdm.contrib.concurrent import process_map as pm
 
-from svm.smv import *
 from svm.smo import SMO
 from utils.data_set import DataSet
 from utils.methods import *
@@ -66,8 +63,8 @@ def flatten(a):
 
 
 BASIC_GRID = {
-    "C": [0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 1000.0],
-    'max_iters': [100, 500, 1000]
+    "C": [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 1000.0],
+    'max_iters': [500, 1000]
 }
 
 
@@ -82,10 +79,12 @@ def basic_with(d: dict):
 
 LINEAR_GRID = basic_with({'kernel': ['linear']})
 RBF_GRID = basic_with({'kernel': ['rbf'], 'gamma': [0.001, 0.01, 0.1, 1.0, 2.0, 3.0, 4.0, 5.0]})
+POLY_GRID = basic_with({'kernel': ['poly'], 'degree': [2, 3, 4, 5]})
 
 GRID = [
     LINEAR_GRID,
-    RBF_GRID
+    RBF_GRID,
+    POLY_GRID
 ]
 
 
@@ -119,9 +118,6 @@ metrics_params = {
 }
 
 def draw_metrics(cv_res):
-    for i in range(len(cv_res['params'])):
-        print(i, cv_res['params'][i])
-
     for iter in BASIC_GRID["max_iters"]:
         data = {}
 
@@ -135,14 +131,16 @@ def draw_metrics(cv_res):
                 idxs = indices_where(has_all(C=C, max_iters=iter, kernel=kernel), cv_res['params'])
                 for idx in idxs:
                     name = kernel_to_s(cv_res['params'][idx])
-                    print("got idx for", name, idx)
                     append_metric(name, cv_res['mean_test_score'][idx])
         metric_plot(
             data,
             BASIC_GRID['C'],
             f"Test score with max iters {iter}",
             x_label='C',
-            with_text=False
+            with_text=False,
+            default_color=True,
+            fit_x=True,
+            n_col=4
         )
 
 
@@ -165,4 +163,4 @@ def process(name):
 
 
 if __name__ == '__main__':
-    process('geyser')
+    process('chips')

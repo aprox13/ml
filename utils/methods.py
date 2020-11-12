@@ -71,7 +71,7 @@ def indices_where(predicate, lst):
     res = []
     for i in range(len(lst)):
         if predicate(lst[i]):
-            res.append([i])
+            res.append(i)
     return res
 
 
