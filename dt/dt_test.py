@@ -131,8 +131,8 @@ def dt(data_sets: List[DSWithSplit], verbose=False):
         title += f"{CRITERION}='{p[CRITERION]}',{SPLITTER}='{p[SPLITTER]}'"
         return title
 
-    metric_plot(min_depth_tree[-1], DEPTH_CHOOSE, title=get_title(min_depth_tree))
-    metric_plot(max_depth_tree[-1], DEPTH_CHOOSE, title=get_title(max_depth_tree))
+    metric_plot(min_depth_tree[-1], DEPTH_CHOOSE, title=get_title(min_depth_tree), x_label="depth")
+    metric_plot(max_depth_tree[-1], DEPTH_CHOOSE, title=get_title(max_depth_tree), x_label="depth")
 
     def result(e):
         i, p, _ = e
@@ -186,8 +186,8 @@ def forest(ds: DSWithSplit, tree_params, verbose=False):
         else:
             data_train[k] = v
 
-    metric_plot(data_test, tree_choice, f'Test {tree_params}', with_text=False)
-    metric_plot(data_train, tree_choice, f'Train {tree_params}', with_text=False)
+    metric_plot(data_test, tree_choice, f'Test {tree_params}', with_text=False, x_label="Count")
+    metric_plot(data_train, tree_choice, f'Train {tree_params}', with_text=False, x_label="Count")
 
 
 if __name__ == '__main__':
