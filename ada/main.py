@@ -8,10 +8,11 @@ import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 from functools import reduce
 from matplotlib import pyplot as plt
-from utils.data_set import DataSet
 from tqdm import tqdm
 import base64
 from IPython import display
+from utils.plots import metric_plot
+from utils.data_set import DataSet
 
 STEPS = 30
 GRID_POINTS = 100
@@ -33,7 +34,6 @@ def generate_gif(name):
         [imageio.imread(f"img/{name}/{i}.png") for i in range(1, STEPS)],
         fps=GIF_FPS
     )
-    return name
 
 
 def initial_weights(n):
@@ -112,6 +112,7 @@ def callback(ds: DataSet, bgX, name):
 
 
 def train(ds: DataSet, name):
+    print("Train")
     min_x, min_y = ds.X.min(axis=0)
     max_x, max_y = ds.X.max(axis=0)
 
@@ -129,6 +130,7 @@ def train(ds: DataSet, name):
 
 
 def test(ds: DataSet, name):
+    print("Metric")
     train_ds, test_ds = ds.test_train_split(test_size=0.33)
 
     metric_data = {
@@ -146,20 +148,17 @@ def test(ds: DataSet, name):
     clf = AdaBoost(n_estimator=STEPS, callback=clbck, verbose=True)
     clf.fit(train_ds.X, train_ds.y)
 
-    from utils.plots import metric_plot
-
     metric_plot(metric_data, x_label='Steps', x_values=list(range(1, STEPS + 1)), title=f'Accuracy for {name}',
                 default_color=True)
 
 
-def show_gif(fname):
-    with open(fname, 'rb') as fd:
-        b64 = base64.b64encode(fd.read()).decode('ascii')
-    return display.HTML(f'<img src="data:image/gif;base64,{b64}" />')
-
-
 def process(name):
     import os
+    try:
+        os.mkdir("img")
+    except:
+        pass
+
     try:
         os.mkdir(f"img/{name}")
     except:
@@ -167,7 +166,7 @@ def process(name):
     ds = read_dataset(f'data/{name}.csv')
 
     train(ds, name)
-    show_gif(generate_gif(name))
+    generate_gif(name)
     test(ds, name)
 
 
