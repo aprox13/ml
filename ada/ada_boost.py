@@ -1,70 +1,49 @@
 import numpy as np
-from copy import deepcopy
 from sklearn.base import BaseEstimator
-from utils.Suspects import Suspects
+from copy import deepcopy
+import random
 
 
 class AdaBoost(BaseEstimator):
 
-    def __init__(self, estimator=None, estimator_n=100, suspect=None):
+    def __init__(self, estimator=None, estimator_n=100, callback=None):
         self.estimator_n = estimator_n
         self.estimator = estimator
-        self._estimators = np.array([])
-        self.sample_weights = None
-        self.stumps = None
-        self.stump_weights = None
-        self.suspect = suspect
-        self._processed = 0
 
-    def fit(self, X: np.ndarray, y: np.ndarray):
+        self.estimators = []
+        self.alphas = []
+        self.callback = callback
 
-        n = X.shape[0]
+    def fit_one(self, X, y, weights):
+        classifier = deepcopy(self.estimator)
+        indices = random.choices(range(len(X)), weights=weights, k=len(X))
+        new_X = [X[i] for i in indices]
+        new_y = [y[i] for i in indices]
+        classifier.fit(new_X, new_y)
 
-        # init numpy arrays
-        self.sample_weights = np.zeros(shape=(self.estimator_n, n))
-        self.stumps = np.zeros(shape=self.estimator_n, dtype=object)
-        self.stump_weights = np.zeros(shape=self.estimator_n)
+        predicted = classifier.predict(X)
+        error = sum([weights[i] for i in range(len(X)) if predicted[i] != y[i]])
+        alpha = 0.5 * np.log((1 - error) / error) if np.isclose(0, error) else 1
 
-        # initialize weights uniformly
-        self.sample_weights[0] = np.ones(shape=n) / n
+        z = 0
+        for i in range(len(weights)):
+            weights[i] *= np.exp(-alpha * y[i] * predicted[i])
+            z += weights[i]
 
-        for t in range(self.estimator_n):
-            # fit  weak learner
-            curr_sample_weights = self.sample_weights[t]
-            stump = deepcopy(self.estimator)
-            stump = stump.fit(X, y, sample_weight=curr_sample_weights)
+        self.estimators.append(classifier)
+        self.alphas.append(alpha)
 
-            # calculate error and stump weight from weak learner prediction
-            stump_pred = stump.predict(X)
-            err = curr_sample_weights[(stump_pred != y)].sum()  # / n
-            stump_weight = np.log((1 - err) / err) / 2
+        return weights / z
 
-            # update sample weights
-            new_sample_weights = (
-                    curr_sample_weights * np.exp(-stump_weight * y * stump_pred)
-            )
-
-            new_sample_weights /= new_sample_weights.sum()
-
-            # If not final iteration, update sample weights for t+1
-            if t + 1 < self.estimator_n:
-                self.sample_weights[t + 1] = new_sample_weights
-
-            # save results of iteration
-            self.stumps[t] = stump
-            self.stump_weights[t] = stump_weight
-            self._processed += 1
-            if self.suspect is not None:
-                self.suspect.suspect(iteration=t, clf=self, error=err)
+    def fit(self, X, y):
+        weights = np.ones(len(X)) / len(X)
+        for i in range(self.estimator_n):
+            weights = self.fit_one(X, y, weights)
+            if self.callback is not None:
+                self.callback(clf=self, step=i + 1)
 
     def predict(self, X):
-        built = self._processed
-        sts = self.stumps[:built]
-        ws = self.stump_weights[:built]
+        return np.sign(sum([self.alphas[i] * self.estimators[i].predict(X) for i in range(len(self.estimators))]))
 
-        print(built)
-        print(self.stumps)
-        print(sts)
-        print(ws)
-        stump_preds = np.array([stump.predict(X) for stump in sts])
-        return np.sign(np.dot(self.stump_weights[:built], stump_preds))
+    def __repr__(self, N_CHAR_MAX=700):
+        return f"AdaBoost(estimator={self.estimator},estimator_n={self.estimator_n}, fitted_count={len(self.estimators)})"

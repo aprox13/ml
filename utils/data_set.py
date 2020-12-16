@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 
 def data_set_from_csv(train_file: str, test_file: str = None):
@@ -43,6 +44,10 @@ class DataSet:
         train_y, test_y = self.y[train_indices], self.y[test_indices]
 
         return DataSet(X=train_X, y=train_y, test_X=test_X, test_y=test_y)
+
+    def test_train_split(self, **kwargs):
+        X, tX, y, ty = train_test_split(self.X, self.y, **kwargs)
+        return DataSet(X, y), DataSet(tX, ty)
 
     def __repr__(self):
         count, features = self.X.shape
