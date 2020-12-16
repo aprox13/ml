@@ -27,11 +27,13 @@ def read_dataset(filename) -> DataSet:
 
 
 def generate_gif(name):
+    name = f'{name}.gif'
     imageio.mimsave(
         f'{name}.gif',
         [imageio.imread(f"img/{name}/{i}.png") for i in range(1, STEPS)],
         fps=GIF_FPS
     )
+    return name
 
 
 def initial_weights(n):
@@ -150,6 +152,12 @@ def test(ds: DataSet, name):
                 default_color=True)
 
 
+def show_gif(fname):
+    with open(fname, 'rb') as fd:
+        b64 = base64.b64encode(fd.read()).decode('ascii')
+    return display.HTML(f'<img src="data:image/gif;base64,{b64}" />')
+
+
 def process(name):
     import os
     try:
@@ -159,14 +167,8 @@ def process(name):
     ds = read_dataset(f'data/{name}.csv')
 
     train(ds, name)
-    generate_gif(name)
+    show_gif(generate_gif(name))
     test(ds, name)
-
-
-def show_gif(fname):
-    with open(fname, 'rb') as fd:
-        b64 = base64.b64encode(fd.read()).decode('ascii')
-    return display.HTML(f'<img src="data:image/gif;base64,{b64}" />')
 
 
 process("chips")
