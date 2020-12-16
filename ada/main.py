@@ -1,7 +1,5 @@
 import random
-
 from sklearn.metrics import accuracy_score
-
 import imageio
 import numpy as np
 import pandas as pd
@@ -9,8 +7,8 @@ from sklearn.tree import DecisionTreeClassifier
 from functools import reduce
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-import base64
-from IPython import display
+import os
+
 from utils.plots import metric_plot
 from utils.data_set import DataSet
 
@@ -28,12 +26,13 @@ def read_dataset(filename) -> DataSet:
 
 
 def generate_gif(name):
-    name = f'{name}.gif'
+    gn = f'img/{name}/{random.randint(1, 10000000)}.gif'
     imageio.mimsave(
-        f'{name}.gif',
+        gn,
         [imageio.imread(f"img/{name}/{i}.png") for i in range(1, STEPS)],
         fps=GIF_FPS
     )
+    print(f'![{gn}]({gn} {name})')
 
 
 def initial_weights(n):
@@ -58,9 +57,7 @@ class AdaBoost:
 
         alpha = 0.5 * np.log((1 - error) / error) if np.isclose(0, error) else 1
 
-        delta = np.exp(np.multiply(y, predicted) * (-alpha))
-
-        weights *= delta
+        weights *= np.exp(np.multiply(y, predicted) * (-alpha))
 
         self.clfs.append(classifier)
         self.a = np.append(self.a, alpha)
@@ -88,15 +85,15 @@ def scatter(X, **kwargs):
     plt.scatter(xx, yy, **kwargs)
 
 
-def draw(ds: DataSet, background_X, background_Y, step, name):
+def draw(ds: DataSet, bgX, bgY, step, name):
     X = ds.X
     y = ds.y
     fig = plt.figure()
 
-    scatter(background_X[background_Y >= 0], marker='.', color='green', alpha=0.2)
-    scatter(background_X[background_Y < 0], marker='.', color='red', alpha=0.2)
     scatter(X[y >= 0], marker='+', color='green')
     scatter(X[y < 0], marker='_', color='red')
+    scatter(bgX[bgY >= 0], marker='.', color='green', alpha=0.15)
+    scatter(bgX[bgY < 0], marker='.', color='red', alpha=0.15)
 
     plt.title(f'step {step}/{STEPS}')
     fig.savefig(f"img/{name}/{step}")
@@ -152,22 +149,21 @@ def test(ds: DataSet, name):
                 default_color=True)
 
 
-def process(name):
-    import os
+def safe(f):
     try:
-        os.mkdir("img")
+        f()
     except:
         pass
 
-    try:
-        os.mkdir(f"img/{name}")
-    except:
-        pass
+
+def process(name):
+    safe(os.makedirs(f"img/{name}"))
+
     ds = read_dataset(f'data/{name}.csv')
 
     train(ds, name)
-    generate_gif(name)
     test(ds, name)
+    generate_gif(name)
 
 
 process("chips")
