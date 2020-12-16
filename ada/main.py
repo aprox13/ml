@@ -26,13 +26,13 @@ def read_dataset(filename) -> DataSet:
 
 
 def generate_gif(name):
-    gn = f'img/{name}/{random.randint(1, 10000000)}.gif'
+    gn = f'img/{name}/{random.randint(0, 100000000)}.gif'
     imageio.mimsave(
         gn,
         [imageio.imread(f"img/{name}/{i}.png") for i in range(1, STEPS)],
         fps=GIF_FPS
     )
-    print(f'![{gn}]({gn} {name})')
+    print(f'![SegmentLocal]({gn} "{name}")')
 
 
 def initial_weights(n):
