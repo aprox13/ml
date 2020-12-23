@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST
-from tqdm.notebook import trange
+from tqdm.notebook import trange, tqdm
 
 
 class MnistNet(nn.Module):
@@ -68,6 +68,15 @@ def get_test_dataloader(ds_cls, transform, batch_size):
     )
 
 
+metrics = {
+    'train': {
+        'Accuracy': [],
+        'loss': [],
+        'step': []
+    }
+}
+
+
 def train_test_model(dataset_class,
                      criterion,
                      optimizer_cls,
@@ -89,8 +98,9 @@ def train_test_model(dataset_class,
     loss_list = []
     acc_list = []
     model.train()
+    train_metric = metrics['train']
     for epoch in trange(num_epochs):
-        for i, (images, labels) in enumerate(train_loader):
+        for i, (images, labels) in tqdm(enumerate(train_loader)):
             # Прямой запуск
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -107,10 +117,23 @@ def train_test_model(dataset_class,
             correct = (predicted == labels).sum().item()
             acc_list.append(correct / total)
 
-            if (i + 1) % 100 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
-                      .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
-                              (correct / total) * 100))
+            train_metric['Accuracy'].append(correct / total)
+            train_metric['loss'].append(loss.item())
+            train_metric['step'].append(epoch + 1 + (i / total_step))
+
+            # if (i + 1) % 100 == 0:
+            #     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
+            #           .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
+            #                   (correct / total) * 100))
+
+    import matplotlib.pyplot as plt
+
+    names = filter(lambda s: s != 'step', list(train_metric.keys()))
+
+    for name in names:
+        plt.plot(train_metric['step'], train_metric[name], label=name)
+        plt.xlabel('epoch')
+        plt.show()
 
     model.eval()
     test_loader = get_test_dataloader(dataset_class, transform, batch_size)
