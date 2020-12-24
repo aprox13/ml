@@ -1,4 +1,5 @@
 # %%
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,7 +7,16 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST
 from tqdm.notebook import trange, tqdm
+import numpy as np
+from sklearn.metrics import confusion_matrix
+import pandas as pd
+import seaborn as sn
 
+torch.manual_seed(42)
+np.random.seed(42)
+
+
+# %%
 
 class MnistNet(nn.Module):
     def __init__(self, n_classes=10):
@@ -67,6 +77,43 @@ def get_test_dataloader(ds_cls, transform, batch_size):
         batch_size=batch_size
     )
 
+
+# %%
+def show_img_matrix(images_matrix):
+    nrow = len(images_matrix)
+    ncol = len(images_matrix[0])
+    f, axarr = plt.subplots(
+        nrow, ncol,
+        gridspec_kw=dict(wspace=0.1, hspace=0.1,
+                         top=1. - 0.5 / (nrow + 1), bottom=0.5 / (nrow + 1),
+                         left=0.5 / (ncol + 1), right=1 - 0.5 / (ncol + 1)),
+        figsize=(ncol + 1, nrow + 1),
+        sharey='row', sharex='col',  # optionally
+    )
+
+    for ax in axarr.ravel():
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_axis_off()
+
+    for i in range(len(images_matrix)):
+        for j in range(len(images_matrix[i])):
+            image = images_matrix[i][j]
+            axarr[i, j].imshow(image)
+    plt.show()
+
+
+def conf_matrix(y_true, y_pred):
+    conf_matrix = confusion_matrix(y_true=y_true, y_pred=y_pred)
+    index, columns = conf_matrix.shape
+    df_cm = pd.DataFrame(conf_matrix, index=range(index),
+                         columns=range(columns))
+    plt.figure(figsize=(10, 7))
+    vmax = np.unique(y_pred, return_counts=True)[1].max()
+    sn.heatmap(df_cm, annot=True, cmap='coolwarm', vmin=0, vmax=vmax, fmt='.4g')
+
+
+# %%
 
 metrics = {
     'train': {
@@ -141,7 +188,9 @@ def train_test_model(dataset_class,
 
         plots(train_metric)
 
-
+    y_true = []
+    y_pred = []
+    image_matrix = np.zeros((28, 28, 1))
     model.eval()
     test_loader = get_test_dataloader(dataset_class, transform, batch_size)
     with torch.no_grad():
@@ -152,11 +201,17 @@ def train_test_model(dataset_class,
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+            y_true.extend(labels)
+            y_pred.extend(predicted)
+            for idx, (true, pred) in enumerate(zip(labels, predicted)):
+                image_matrix[true, pred] = images[idx]
 
         print('Test Accuracy of the model on the 10000 test images: {} %'.format((correct / total) * 100))
 
     # Сохраняем модель и строим график
     torch.save(model.state_dict(), 'conv_net_model.ckpt')
+    conf_matrix(y_true, y_pred)
+    show_img_matrix(image_matrix)
 
 
 # %%
