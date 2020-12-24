@@ -43,7 +43,7 @@ class MnistNet(nn.Module):
 
 
 # %%
-PLOT_MEAN_BY_EPOCH = True
+
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
 
 
@@ -104,11 +104,7 @@ def train_model(dataset_class,
     loss_list = []
     acc_list = []
     model.train()
-    train_metric = {
-        'Accuracy': [],
-        'loss': [],
-        'step': []
-    }
+    train_metric = metrics['train']
 
     def plots(metrs):
         import matplotlib.pyplot as plt
@@ -116,21 +112,12 @@ def train_model(dataset_class,
         names = filter(lambda s: s != 'step', list(metrs.keys()))
 
         for name in names:
-            xx = metrs['step']
-            yy = metrs[name]
-            plt.plot(xx, yy, label=name)
-            plt.scatter(xx, yy)
+            plt.plot(metrs['step'], metrs[name], label=name)
             plt.xlabel('epoch')
-            plt.legend()
             plt.show()
 
     for epoch in trange(num_epochs):
         i = -1
-        epoch_metric = {}
-
-        for k in train_metric.keys():
-            epoch_metric[k] = []
-
         for images, labels in tqdm(train_loader):
             i += 1
             outputs = model(images)
@@ -146,19 +133,11 @@ def train_model(dataset_class,
             correct = (predicted == labels).sum().item()
             acc_list.append(correct / total)
 
-            epoch_metric['Accuracy'].append(correct / total)
-            epoch_metric['loss'].append(loss.item())
-            epoch_metric['step'].append(epoch + 1 + (i / total_step))
+            train_metric['Accuracy'].append(correct / total)
+            train_metric['loss'].append(loss.item())
+            train_metric['step'].append(epoch + 1 + (i / total_step))
 
-        if PLOT_MEAN_BY_EPOCH:
-            train_metric['step'].append(epoch + 1)
-            for k in filter(lambda x: x != 'step', epoch_metric.keys()):
-                train_metric[k] = np.mean(epoch_metric[k])
-        else:
-            for k, v in epoch_metric.items():
-                train_metric[k].extend(v)
-
-    plots(train_metric)
+        plots(train_metric)
 
     torch.save(model.state_dict(), f'{name_prefix}net.ckpt')
     return model
