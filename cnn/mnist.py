@@ -136,8 +136,8 @@ def train_test_model(dataset_class,
                      ):
     if model is None:
         model = MnistNet()
-    model = MnistNet()
-    model.load_state_dict(torch.load('conv_net_model.ckpt'))
+    # model = MnistNet()
+    # model.load_state_dict(torch.load('conv_net_model.ckpt'))
 
     optimizer = optimizer_cls(model.parameters(), lr=learning_rate)
 
@@ -222,7 +222,6 @@ def train_test_model(dataset_class,
         print(f'[Epoch {epoch + 1}/{num_epochs}]')
         print('Train: accuracy {:.2f}%, mean loss {:.2f}'.format(train_acc * 100, metrics[TRAIN_LOSS_MEAN][-1]))
         test_model(return_matrix=False, metered=True)
-        print()
         if (epoch + 1) % PLOT_BY_EPOCH_FREQ == 0 and IN_EPOCH_VERBOSE:
             plots(metrics, title=f'Epoch {epoch + 1}')
 
