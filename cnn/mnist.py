@@ -123,6 +123,7 @@ metrics = {
     }
 }
 
+METRIC_FREQ = 100
 
 def train_test_model(dataset_class,
                      criterion,
@@ -140,6 +141,7 @@ def train_test_model(dataset_class,
     transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
 
     train_loader = get_train_dataloader(dataset_class, transform, batch_size)
+    test_loader = get_test_dataloader(dataset_class, transform, batch_size)
 
     total_step = len(train_loader)
     loss_list = []
@@ -156,6 +158,40 @@ def train_test_model(dataset_class,
             plt.plot(metrs['step'], metrs[name], label=name)
             plt.xlabel('epoch')
             plt.show()
+
+    test_metric = {
+        'Accuracy': [],
+        'step': []
+    }
+
+    def test_model(return_matrix=False, metered=True, epoch_num=None):
+        y_true = []
+        y_pred = []
+
+        image_matrix = np.zeros((28, 28, 1))
+        model.eval()
+        with torch.no_grad():
+            correct = 0
+            total = 0
+            for images, labels in test_loader:
+                outputs = model(images)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+                if return_matrix:
+                    y_true.extend(labels)
+                    y_pred.extend(predicted)
+                    for idx, (true, pred) in enumerate(zip(labels, predicted)):
+                        image_matrix[true, pred] = images[idx]
+
+            print('Test Accuracy: {} %'.format((correct / total) * 100))
+            if metered:
+                test_metric['Accuracy'].append(correct / total)
+                test_metric['step'].append(epoch_num)
+
+        if return_matrix:
+            return y_true, y_pred, image_matrix
 
     for epoch in trange(num_epochs):
         i = -1
@@ -176,38 +212,35 @@ def train_test_model(dataset_class,
             _, predicted = torch.max(outputs.data, 1)
             correct = (predicted == labels).sum().item()
             acc_list.append(correct / total)
+            if (i + 1) % METRIC_FREQ == 0:
+                train_metric['Accuracy'].append(correct / total)
+                train_metric['loss'].append(loss.item())
+                train_metric['step'].append(epoch + 1 + (i / total_step))
 
-            train_metric['Accuracy'].append(correct / total)
-            train_metric['loss'].append(loss.item())
-            train_metric['step'].append(epoch + 1 + (i / total_step))
-
-            # if (i + 1) % 100 == 0:
-            #     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
-            #           .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(),
-            #                   (correct / total) * 100))
-
+        test_model(return_matrix=False, metered=True)
         plots(train_metric)
 
-    y_true = []
-    y_pred = []
-    image_matrix = np.zeros((28, 28, 1))
-    model.eval()
-    test_loader = get_test_dataloader(dataset_class, transform, batch_size)
-    with torch.no_grad():
-        correct = 0
-        total = 0
-        for images, labels in test_loader:
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-            y_true.extend(labels)
-            y_pred.extend(predicted)
-            for idx, (true, pred) in enumerate(zip(labels, predicted)):
-                image_matrix[true, pred] = images[idx]
+    # y_true = []
+    # y_pred = []
+    # image_matrix = np.zeros((28, 28, 1))
+    # model.eval()
+    # with torch.no_grad():
+    #     correct = 0
+    #     total = 0
+    #     for images, labels in test_loader:
+    #         outputs = model(images)
+    #         _, predicted = torch.max(outputs.data, 1)
+    #         total += labels.size(0)
+    #         correct += (predicted == labels).sum().item()
+    #         y_true.extend(labels)
+    #         y_pred.extend(predicted)
+    #         for idx, (true, pred) in enumerate(zip(labels, predicted)):
+    #             image_matrix[true, pred] = images[idx]
+    #
+    #     print('Test Accuracy of the model on the 10000 test images: {} %'.format((correct / total) * 100))
 
-        print('Test Accuracy of the model on the 10000 test images: {} %'.format((correct / total) * 100))
-
+    plots(test_metric)
+    y_true, y_pred, image_matrix = test_model(return_matrix=True, metered=False)
     # Сохраняем модель и строим график
     torch.save(model.state_dict(), 'conv_net_model.ckpt')
     conf_matrix(y_true, y_pred)
