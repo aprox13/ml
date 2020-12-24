@@ -91,7 +91,6 @@ def train_model(dataset_class,
                 batch_size=32,
                 model=None,
                 num_epochs=20,
-                name_prefix=''
                 ):
     if model is None:
         model = MnistNet()
@@ -139,7 +138,7 @@ def train_model(dataset_class,
 
         plots(train_metric)
 
-    torch.save(model.state_dict(), f'{name_prefix}net.ckpt')
+    torch.save(model.state_dict(), 'conv_net_model.ckpt')
     return model
 
 
@@ -210,13 +209,12 @@ def trained_model(file_path):
 
 
 # %%
-model = train_model(MNIST, criterion=nn.CrossEntropyLoss(), optimizer_cls=torch.optim.Adam, name_prefix='mnist')
+model = train_model(MNIST, criterion=nn.CrossEntropyLoss(), optimizer_cls=torch.optim.Adam)
 
 # model = trained_model('/Users/ifkbhit/itmo/ml-git/data/conv_net_model.ckpt')
 
 test_model(MNIST, model)
 
 # %%
-model = train_model(FashionMNIST, criterion=nn.CrossEntropyLoss(), optimizer_cls=torch.optim.Adam,
-                    name_prefix='fashion_mnist')
+model = train_model(FashionMNIST, criterion=nn.CrossEntropyLoss(), optimizer_cls=torch.optim.Adam)
 test_model(FashionMNIST, model)
