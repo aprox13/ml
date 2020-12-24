@@ -8,12 +8,13 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 from tqdm.notebook import trange, tqdm
 import numpy as np
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
 import pandas as pd
 import seaborn as sn
 
-torch.manual_seed(42)
-np.random.seed(42)
+SEED = 1000
+torch.manual_seed(SEED)
+np.random.seed(SEED)
 
 
 # %%
@@ -115,15 +116,15 @@ def conf_matrix(y_true, y_pred):
 
 # %%
 
-metrics = {
-    'train': {
-        'Accuracy': [],
-        'loss': [],
-        'step': []
-    }
-}
+PLOT_BY_EPOCH_FREQ = 2
+IN_EPOCH_VERBOSE = False
 
-METRIC_FREQ = 100
+
+def tqdm_in_epoch(data, **kwargs):
+    if IN_EPOCH_VERBOSE:
+        return tqdm(data, **kwargs)
+    return data
+
 
 def train_test_model(dataset_class,
                      criterion,
@@ -135,6 +136,8 @@ def train_test_model(dataset_class,
                      ):
     if model is None:
         model = MnistNet()
+    model = MnistNet()
+    model.load_state_dict(torch.load('conv_net_model.ckpt'))
 
     optimizer = optimizer_cls(model.parameters(), lr=learning_rate)
 
@@ -143,109 +146,93 @@ def train_test_model(dataset_class,
     train_loader = get_train_dataloader(dataset_class, transform, batch_size)
     test_loader = get_test_dataloader(dataset_class, transform, batch_size)
 
-    total_step = len(train_loader)
-    loss_list = []
-    acc_list = []
     model.train()
-    train_metric = metrics['train']
 
-    def plots(metrs):
+    def plots(metrs, title=''):
         import matplotlib.pyplot as plt
 
         names = filter(lambda s: s != 'step', list(metrs.keys()))
-
+        xx = list(range(1, len(metrs[TRAIN_ACC]) + 1))
         for name in names:
-            plt.plot(metrs['step'], metrs[name], label=name)
-            plt.xlabel('epoch')
-            plt.show()
+            if len(metrs[name]) == len(xx):
+                plt.plot(xx, metrs[name], label=name)
+        plt.xlabel('Epoch')
+        plt.title(title)
+        plt.legend()
+        plt.show()
 
-    test_metric = {
-        'Accuracy': [],
-        'step': []
+    TEST_ACC = 'Test accuracy'
+    TRAIN_ACC = 'Train accuracy'
+    TRAIN_LOSS_MEAN = 'Train loss mean'
+    metrics = {
+        TRAIN_ACC: [],
+        TEST_ACC: [],
+        TRAIN_LOSS_MEAN: [],
     }
 
-    def test_model(return_matrix=False, metered=True, epoch_num=None):
+    def test_model(return_matrix=False, metered=True):
         y_true = []
         y_pred = []
 
-        image_matrix = np.zeros((28, 28, 1))
+        image_matrix = np.zeros((10, 10, 28, 28, 1))
         model.eval()
         with torch.no_grad():
-            correct = 0
-            total = 0
-            for images, labels in test_loader:
-                outputs = model(images)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+            for test_images, test_labels in tqdm_in_epoch(test_loader, desc='Testing'):
+                test_outputs = model(test_images)
+                _, test_predicted = torch.max(test_outputs.data, 1)
 
+                y_true.extend(test_labels)
+                y_pred.extend(test_predicted)
                 if return_matrix:
-                    y_true.extend(labels)
-                    y_pred.extend(predicted)
-                    for idx, (true, pred) in enumerate(zip(labels, predicted)):
-                        image_matrix[true, pred] = images[idx]
-
-            print('Test Accuracy: {} %'.format((correct / total) * 100))
-            if metered:
-                test_metric['Accuracy'].append(correct / total)
-                test_metric['step'].append(epoch_num)
+                    for idx, (true, pred) in enumerate(zip(test_labels, test_predicted)):
+                        image_matrix[true, pred] = test_images[idx].reshape((28, 28, 1))
+        acc_test = accuracy_score(y_true, y_pred)
+        print('Test Accuracy: {:.2f} %'.format(acc_test * 100))
+        if metered:
+            metrics[TEST_ACC].append(acc_test)
 
         if return_matrix:
             return y_true, y_pred, image_matrix
 
     for epoch in trange(num_epochs):
         i = -1
-        for images, labels in tqdm(train_loader):
+        model.train()
+        losses = []
+        train_true, train_pred = [], []
+        for images, labels in tqdm_in_epoch(train_loader):
             i += 1
             # Прямой запуск
             outputs = model(images)
             loss = criterion(outputs, labels)
-            loss_list.append(loss.item())
 
             # Обратное распространение и оптимизатор
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            losses.append(loss.item())
 
-            # Отслеживание точности
-            total = labels.size(0)
             _, predicted = torch.max(outputs.data, 1)
-            correct = (predicted == labels).sum().item()
-            acc_list.append(correct / total)
-            if (i + 1) % METRIC_FREQ == 0:
-                train_metric['Accuracy'].append(correct / total)
-                train_metric['loss'].append(loss.item())
-                train_metric['step'].append(epoch + 1 + (i / total_step))
 
+            train_true.extend(labels)
+            train_pred.extend(predicted)
+
+        train_acc = accuracy_score(train_true, train_pred)
+        metrics[TRAIN_ACC].append(train_acc)
+        metrics[TRAIN_LOSS_MEAN].append(np.mean(np.array(losses)))
+        print(f'[Epoch {epoch + 1}/{num_epochs}]')
+        print('Train: accuracy {:.2f}%, mean loss {:.2f}'.format(train_acc * 100, metrics[TRAIN_LOSS_MEAN][-1]))
         test_model(return_matrix=False, metered=True)
-        plots(train_metric)
+        print()
+        if (epoch + 1) % PLOT_BY_EPOCH_FREQ == 0 and IN_EPOCH_VERBOSE:
+            plots(metrics, title=f'Epoch {epoch + 1}')
 
-    # y_true = []
-    # y_pred = []
-    # image_matrix = np.zeros((28, 28, 1))
-    # model.eval()
-    # with torch.no_grad():
-    #     correct = 0
-    #     total = 0
-    #     for images, labels in test_loader:
-    #         outputs = model(images)
-    #         _, predicted = torch.max(outputs.data, 1)
-    #         total += labels.size(0)
-    #         correct += (predicted == labels).sum().item()
-    #         y_true.extend(labels)
-    #         y_pred.extend(predicted)
-    #         for idx, (true, pred) in enumerate(zip(labels, predicted)):
-    #             image_matrix[true, pred] = images[idx]
-    #
-    #     print('Test Accuracy of the model on the 10000 test images: {} %'.format((correct / total) * 100))
-
-    plots(test_metric)
-    y_true, y_pred, image_matrix = test_model(return_matrix=True, metered=False)
     # Сохраняем модель и строим график
     torch.save(model.state_dict(), 'conv_net_model.ckpt')
-    conf_matrix(y_true, y_pred)
-    show_img_matrix(image_matrix)
+    true_test, pred_test, result_img_mtrx = test_model(return_matrix=True, metered=False)
+    plots(metrics, 'After training end')
+    conf_matrix(true_test, pred_test)
+    show_img_matrix(result_img_mtrx)
 
 
 # %%
-train_test_model(MNIST, criterion=nn.CrossEntropyLoss(), optimizer_cls=torch.optim.Adam)
+train_test_model(MNIST, criterion=nn.CrossEntropyLoss(), optimizer_cls=torch.optim.Adam, num_epochs=12)
