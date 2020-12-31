@@ -1,11 +1,14 @@
 import os
 import re
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
 from nltk import ngrams
 from sklearn.metrics import confusion_matrix
-from tqdm import trange
+from tqdm import tqdm
+
+warnings.filterwarnings('ignore')
 
 LEGIT: int = 1
 SPAM: int = 0
@@ -43,7 +46,6 @@ def calc_ngrams(X, n):
 
 
 def calc_X_test(keys, X_test, n):
-    print('calc_X_test shape', X_test)
     ng = dict.fromkeys(keys, 0)
     for i in range(0, len(X_test) - n):
         key = tuple(X_test[i:i + n])
@@ -88,29 +90,28 @@ def likelihood_prob(X_test, y, prob):
     return p
 
 
-def predict(y_train, X_test, _lambda, prob):
-    y0 = _lambda[0] * priori_prob(y_train, 0) * likelihood_prob(X_test, 0, prob)
-    y1 = _lambda[1] * priori_prob(y_train, 1) * likelihood_prob(X_test, 1, prob)
+def predict(y_train, X_test, lambda_spam, lambda_legit, prob):
+    y0 = lambda_spam * priori_prob(y_train, SPAM) * likelihood_prob(X_test, SPAM, prob)
+    y1 = lambda_legit * priori_prob(y_train, LEGIT) * likelihood_prob(X_test, LEGIT, prob)
     if y0 > y1:
         return 0
     return 1
 
 
-def cross_validation(l_max, alpha=1e-3):
+def cross_validation(lambda_legit, alpha=1e-3, lambda_spam=1):
     X, y = load_dataset()
-    l = (1, l_max)
     CM = np.zeros((2, 2))
 
-    for i in trange(len(X), desc='Main loop'):
+    for i in range(len(X)):
         ngrams, X_train = calc_ngrams(np.append(X[:i], X[i + 1:]), N)
         y_train = np.append((y[:i]), (y[i + 1:]))
 
         likelihood_y = calc_likelihood(X_train, y_train, alpha)
 
-        y_test = []
-        for j in range(len(X[i])):
-            X_test = calc_X_test(ngrams, X[i][j], N)
-            y_test.append(predict(y_train, X_test, l, likelihood_y))
+        y_test = [
+            predict(y_train, calc_X_test(ngrams, xx, N), lambda_spam, lambda_legit, likelihood_y)
+            for xx in X[i]
+        ]
 
         CM += confusion_matrix(y_true=y[i], y_pred=y_test)
     return CM
@@ -131,32 +132,33 @@ def load_dataset():
 
 
 def solve():
-    lambdaa = [i for i in range(1, int(1e308), int(1e308 / 10))]
+    lambdas = [i for i in range(1, int(1e308), int(1e308 / 10))]
     ox = []
     oy = []
     acc = []
 
-    res = map(cross_validation, lambdaa)
-
-    for CM in res:
+    for _lambda in tqdm(lambdas):
         # CM[true][pred]
+        CM = cross_validation(_lambda)
+
         TN = CM[SPAM][SPAM]
         FN = CM[LEGIT][SPAM]
         TP = CM[LEGIT][LEGIT]
         FP = CM[SPAM][LEGIT]
 
-        total_P = TP + FN
-        total_N = FP + TN
         acc.append((TN + TP) / CM.sum())
 
-        ox.append(TP / total_P)
-        oy.append(FP / total_N)
+        TPR = TP / (TP + FN)
+        FPR = FP / (FP + TN)
+
+        ox.append(TPR)
+        oy.append(FPR)
 
     plt.plot(ox, oy)
     plt.title("roc")
     plt.show()
 
-    plt.plot(lambdaa, acc)
+    plt.plot(lambdas, acc)
     plt.title('Accuracy')
     plt.show()
 
